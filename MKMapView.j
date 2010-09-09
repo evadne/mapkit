@@ -30,6 +30,8 @@
 @import "MKGeometry.j"
 @import "MKTypes.j"
 
+@import <IRDelegation/IRDelegation.j>
+
 
 @implementation MKMapView : CPView
 {
@@ -46,6 +48,19 @@
     DOMElement              m_DOMMapElement;
     DOMElement              m_DOMGuardElement;
     Object                  m_map;
+
+    id _delegate @accessors(property=delegate);
+
+}
+
++ (IRProtocol) irDelegateProtocol {
+
+	return [IRProtocol protocolWithSelectorsAndOptionalFlags:
+
+		@selector(mapViewDidFinishLoading:), false
+
+	];
+
 }
 
 + (CPSet)keyPathsForValuesAffectingCenterCoordinateLatitude
@@ -117,6 +132,9 @@
         document.body.appendChild(m_DOMMapElement);
 
         m_map = new google.maps.Map2(m_DOMMapElement, { size: new GSize(width, height) });
+
+	if ([[self delegate] respondsToSelector:@selector(mapViewDidFinishLoading:)])
+	[[self delegate] mapViewDidFinishLoading:self];
 
         m_map.setCenter(LatLngFromCLLocationCoordinate2D(m_centerCoordinate));
         m_map.setZoom(m_zoomLevel);
@@ -195,6 +213,13 @@
 
         m_map.checkResize();
     }
+}
+
+- (Object) namespace {
+	
+	console.log("m_map", m_map);
+	return m_map;
+	
 }
 
 - (MKCoordinateRegion)region

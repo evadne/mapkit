@@ -25,12 +25,29 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 // OTHER DEALINGS IN THE SOFTWARE.
 
+
+
+
+
+
+
+
+
+
 @import <AppKit/CPView.j>
 
 @import "MKGeometry.j"
 @import "MKTypes.j"
 
-@import <IRDelegation/IRDelegation.j>
+@class IRProtocol;
+
+
+
+
+
+
+
+
 
 
 @implementation MKMapView : CPView {
@@ -38,21 +55,26 @@
 	CLLocationCoordinate2D  m_centerCoordinate;
 	int m_zoomLevel;
 	MKMapType m_mapType;
-
 	BOOL m_scrollWheelZoomEnabled;
 
-	// Tracking
-	BOOL m_previousTrackingLocation;
-
 //	Google Maps DOM
-	DOMElement			  m_DOMMapElement;
-//	DOMElement			  m_DOMGuardElement;
-	Object				  m_map;		//	Google Map Object
-	Object				  m_map_overlay;	//	Google Map Overlay for coordinate transforms
+	
+	DOMElement m_DOMMapElement;
+	Object m_map;
+	Object m_map_overlay;
 	
 	id _delegate @accessors(property=delegate);
 
 }
+
+
+
+
+
+
+
+
+
 
 + (IRProtocol) irDelegateProtocol {
 
@@ -64,10 +86,19 @@
 
 }
 
-+ (CPSet)keyPathsForValuesAffectingCenterCoordinateLatitude {	return [CPSet setWithObjects:@"centerCoordinate"]; }
-+ (CPSet)keyPathsForValuesAffectingCenterCoordinateLongitude {	return [CPSet setWithObjects:@"centerCoordinate"]; }
++ (CPSet)keyPathsForValuesAffectingCenterCoordinateLatitude {
+	
+	return [CPSet setWithObjects:@"centerCoordinate"];
+	
+}
 
-+ (id) _mapTypeObjectForMapType:(MKMapType)aMapType{
++ (CPSet)keyPathsForValuesAffectingCenterCoordinateLongitude {
+	
+	return [CPSet setWithObjects:@"centerCoordinate"];
+
+}
+
++ (id) _mapTypeObjectForMapType:(MKMapType)aMapType {
 
 	if (google && google.maps && google.maps.MapTypeId)
 	return [
@@ -92,9 +123,17 @@
 
 
 
-- (id)initWithFrame:(CGRect)aFrame {	return [self initWithFrame:aFrame centerCoordinate:nil]; }
+- (id) initWithFrame:(CGRect)aFrame {
+	
+	return [self initWithFrame:aFrame centerCoordinate:nil];
+	
+}
 
-- (id)initWithFrame:(CGRect)aFrame centerCoordinate:(CLLocationCoordinate2D)aCoordinate {
+
+
+
+
+- (id) initWithFrame:(CGRect)aFrame centerCoordinate:(CLLocationCoordinate2D)aCoordinate {
 	
 	self = [super initWithFrame:aFrame];
 
@@ -111,6 +150,10 @@
 	return self;
 
 }
+
+
+
+
 
 - (void) _buildDOM {
 
@@ -147,7 +190,7 @@
 			scaleControl: false
 		
 		});
-	
+		
 		m_map.setCenter(LatLngFromCLLocationCoordinate2D(m_centerCoordinate));
 		m_map.setZoom(m_zoomLevel);
 		
@@ -186,7 +229,7 @@
 		}
 
 		var updateZoomLevel = function() {
-
+			
 			var newZoomLevel = m_map.getZoom();
 			var zoomLevel = [self zoomLevel];
 			
@@ -197,6 +240,13 @@
 			
 		}
 
+		google.maps.event.addListener(m_map, "idle", /* () */ function  () {
+			
+			//	Idle
+
+		});
+		
+		google.maps.event.addListener(m_map, "center_changed", updateCenterCoordinate);
 		google.maps.event.addListener(m_map, "moveend", updateCenterCoordinate);
 		google.maps.event.addListener(m_map, "resize", updateCenterCoordinate);
 		google.maps.event.addListener(m_map, "zoomend", updateZoomLevel);
@@ -206,7 +256,7 @@
 }
 
 - (void)setFrameSize:(CGSize)aSize {
-
+	
 	[super setFrameSize:aSize];
 
 	if (!m_DOMMapElement) return;
@@ -223,39 +273,63 @@
 	
 }
 
+
+
+
+
 - (MKCoordinateRegion) region {
 	
 	if (!m_map || !m_map.getBounds()) return nil;
-	
-//	console.log("map object exists!", m_map.getBounds());
-	
-//	i
-
 	return MKCoordinateRegionFromLatLngBounds(m_map.getBounds());
 
 }
 
 - (void) setRegion:(MKCoordinateRegion)aRegion {
 
-	m_region = aRegion;
-
-	if (!m_map) return;
+	m_region = aRegion; if (!m_map) return;
 	[self setZoomLevel:m_map.getBoundsZoomLevel(LatLngBoundsFromMKCoordinateRegion(aRegion))];
 	[self setCenterCoordinate:aRegion.center];
 	
 }
 
+
+
+
+
 - (void) setCenterCoordinate:(CLLocationCoordinate2D)aCoordinate {
 
-	if (m_centerCoordinate &&
-		CLLocationCoordinate2DEqualToCLLocationCoordinate2D(m_centerCoordinate, aCoordinate))
-		return;
+	if (m_centerCoordinate && CLLocationCoordinate2DEqualToCLLocationCoordinate2D(m_centerCoordinate, aCoordinate))
+	return;
 
 	m_centerCoordinate = new CLLocationCoordinate2D(aCoordinate);
 
-	if (m_map) m_map.setCenter(LatLngFromCLLocationCoordinate2D(aCoordinate));
+	if (!m_map) return;	
+	m_map.setCenter(LatLngFromCLLocationCoordinate2D(aCoordinate));
+
+	if ([[self delegate] respondsToSelector:@selector(mapView:regionDidChangeAnimated:)])
+	[[self delegate] mapView:self regionDidChangeAnimated:NO];
 
 }
+
+
+
+
+
+
+
+
+
+
+- (void) panByPointsX:(int)deltaX y:(int)deltaY {
+	
+	if (!m_map) return;
+	m_map.panBy(deltaX, deltaY);
+	
+}
+
+
+
+
 
 - (CLLocationCoordinate2D) centerCoordinate {
 
@@ -368,66 +442,9 @@
 
 
 
-- (void) mouseDown:(CPEvent)anEvent {
-
-	if ([anEvent clickCount] === 2) {
-		
-		m_map.zoomIn(LatLngFromCLLocationCoordinate2D([self convertPoint:[anEvent locationInWindow] toCoordinateFromView:nil]), YES, YES);
-		return;
-	
-	}
-
-	[self trackPan:anEvent];
-
-	[super mouseDown:anEvent];
-
-}
 
 
 
-
-
-- (void) trackPan:(CPEvent)anEvent {
-	
-	var type = [anEvent type];
-	var currentLocation = [self convertPoint:[anEvent locationInWindow] fromView:nil];
-
-	if (type === CPLeftMouseUp) {
-		
-	//	Do nothing.
-		
-	} else {
-	
-		if (type === CPLeftMouseDown) {
-		
-		//	Do nothing.
-		
-		} else if (type === CPLeftMouseDragged) {
-			
-			var centerCoordinate = [self centerCoordinate],
-			lastCoordinate = [self convertPoint:m_previousTrackingLocation toCoordinateFromView:self],
-			currentCoordinate = [self convertPoint:currentLocation toCoordinateFromView:self],
-			delta = new CLLocationCoordinate2D(
-			
-				currentCoordinate.latitude - lastCoordinate.latitude,
-				currentCoordinate.longitude - lastCoordinate.longitude
-			
-			);
-
-			centerCoordinate.latitude -= delta.latitude;
-			centerCoordinate.longitude -= delta.longitude;
-
-			[self setCenterCoordinate:centerCoordinate];
-		
-		}
-
-		[CPApp setTarget:self selector:@selector(trackPan:) forNextEventMatchingMask:CPLeftMouseDraggedMask | CPLeftMouseUpMask untilDate:nil inMode:nil dequeue:YES];
-	
-	}
-
-	m_previousTrackingLocation = currentLocation;
-	
-}
 
 
 - (CGPoint) convertCoordinate:(CLLocationCoordinate2D)aCoordinate toPointToView:(CPView)aView {
@@ -500,7 +517,7 @@ var performWhenGoogleMapsScriptLoaded = function(/*Function*/ aFunction) {
 
 function _MKMapViewGoogleAjaxLoaderLoaded () {
 	
-	google.load("maps", "3.1", {
+	google.load("maps", "3.2", {
 	
 		"callback": _MKMapViewMapsLoaded,
 		"other_params": "sensor=false"

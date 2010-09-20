@@ -577,6 +577,21 @@
 
 
 
+- (Number) geographicalDistanceFromPoint:(CGPoint)fromPoint toPoint:(CGPoint)toPoint basedOnMapView:(MKMapView)inView {
+	
+	return MKGeographicalDistanceBetweenCoordinates(
+		
+		[self convertPoint:fromPoint toCoordinateFromView:inView],
+		[self convertPoint:toPoint toCoordinateFromView:inView]
+		
+	);
+	
+}
+
+
+
+
+
 
 
 

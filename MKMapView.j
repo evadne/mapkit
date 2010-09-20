@@ -62,9 +62,33 @@
 	DOMElement m_DOMMapElement;
 	Object m_map;
 	Object m_map_overlay;
+
+
+//	Delegation
 	
 	id _delegate @accessors(property=delegate);
+	
+	
+//	Annotations
 
+	CPArray _annotations;
+	CPArray _visibleAnnotationViews;
+	CPArray _dequeuedAnnotationViews;
+
+}
+
+
+
+
+
+- (void) didReceiveMemoryWarning {
+
+//	Probably just mean.
+	
+	var enumerator = [_dequeuedAnnotationViews enumerator], annotationView;
+	while (annotationView = [enumerator nextObject])
+	[annotationView removeFromSuperview];
+	
 }
 
 
@@ -85,6 +109,25 @@
 	];
 
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 + (CPSet)keyPathsForValuesAffectingCenterCoordinateLatitude {
 	
@@ -138,8 +181,24 @@
 	self = [super initWithFrame:aFrame];
 
 	if (!self) return nil;
-
-	[self setBackgroundColor:[CPColor colorWithRed:229.0 / 255.0 green:227.0 / 255.0 blue:223.0 / 255.0 alpha:1.0]];
+	
+//	CPLog(@"Map View bundle path for resource is %@", [[CPBundle bundleForClass:MKMapView] pathForResource:@"MKMapBackdrop.png"]);
+	
+	[self setBackgroundColor:
+	
+		[CPColor colorWithPatternImage:
+		
+			[[CPImage alloc] initWithContentsOfFile:
+			
+				[[CPBundle bundleForClass:[self class]] pathForResource:@"MKMapViewBackdrop_lightGrid.png"]
+	
+			]
+		
+		]
+		
+	];
+	
+	//[CPColor colorWithRed:229.0 / 255.0 green:227.0 / 255.0 blue:223.0 / 255.0 alpha:1.0]];
 	[self setCenterCoordinate:aCoordinate || new CLLocationCoordinate2D(52, -1)];
 	[self setZoomLevel:6];
 	[self setMapType:MKMapTypeStandard];
@@ -185,6 +244,8 @@
 				
 			mapTypeId: [[self class] _mapTypeObjectForMapType:m_mapType],
 			
+			backgroundColor: "transparent",
+			
 			mapTypeControl: false,
 			navigationControl: false,
 			scaleControl: false
@@ -229,9 +290,11 @@
 		}
 
 		var updateZoomLevel = function() {
-			
+
 			var newZoomLevel = m_map.getZoom();
 			var zoomLevel = [self zoomLevel];
+			
+			CPLog("New zoom level is %x, from %x", newZoomLevel, zoomLevel);
 			
 			if (newZoomLevel == zoomLevel) return;
 			
@@ -250,10 +313,53 @@
 		google.maps.event.addListener(m_map, "moveend", updateCenterCoordinate);
 		google.maps.event.addListener(m_map, "resize", updateCenterCoordinate);
 		google.maps.event.addListener(m_map, "zoom_changed", updateZoomLevel);
+		google.maps.event.addListener(m_map, "bounds_changed", /* () */ function  () {
+
+			console.log("bounds has changed!");
+			
+			var bounds = m_map.getBounds();
+			
+			var ne = bounds.getNorthEast();
+			var sw = bounds.getSouthWest();
+			
+			
+			var neCoord = new CLLocationCoordinate2D(180, 89.9);
+			var swCoord = new CLLocationCoordinate2D(-180, -89.9);
+			
+			var nePoint = [self convertCoordinate:neCoord toPointToView:self];
+			var swPoint = [self convertCoordinate:swCoord toPointToView:self];
+			
+			CPLog(@"points? %f %f to %f %f", nePoint.x, nePoint.y, swPoint.x, swPoint.y);
+
+		})
 		
 	});
 
 }
+
+
+
+
+
+
+
+
+
+
+- (void) _ensureWholeEarth {
+
+//	Ensure that the whole earth, at most, is visible in the viewport by ensuring that the “world” bounding box is at least of the same height of the viewport, and the width of the world is equal to, or wider than, the viewport.
+	
+}
+
+
+
+
+
+
+
+
+
 
 - (void) setFrameSize:(CGSize)aSize {
 	
@@ -501,6 +607,69 @@
 	return CLLocationCoordinate2DFromLatLng(latlng);
 
 }
+
+
+
+
+
+
+
+
+
+
+- (void) _refreshAnnotationViews {
+	
+	//	Remove the old ones
+	
+}
+
+
+- (void) _removeOrDequeueAnnotationViewIfAppropriate:(CPView)annotationView {
+	
+	
+	
+}
+
+
+- (void) addAnnotation:(id)anAnnotation {
+	
+	
+}
+
+
+- (void) addAnnotations:(CPArray)annotations {
+	
+	
+	
+}
+
+
+- (void) removeAnnotation:(id)anAnnotation {
+	
+	
+	
+}
+
+
+- (void) removeAnnotations:(CPArray)annotations {
+	
+	
+	
+}
+
+
+- (MKAnnotationView) viewForAnnotation:(id)annotation {
+	
+	
+	
+}
+
+
+- (MKAnnotationView) dequeueReusableAnnotationViewWithIdentifier:(CPString)identifier {
+	
+	
+}
+
 
 @end
 

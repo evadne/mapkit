@@ -249,13 +249,13 @@
 		google.maps.event.addListener(m_map, "center_changed", updateCenterCoordinate);
 		google.maps.event.addListener(m_map, "moveend", updateCenterCoordinate);
 		google.maps.event.addListener(m_map, "resize", updateCenterCoordinate);
-		google.maps.event.addListener(m_map, "zoomend", updateZoomLevel);
+		google.maps.event.addListener(m_map, "zoom_changed", updateZoomLevel);
 		
 	});
 
 }
 
-- (void)setFrameSize:(CGSize)aSize {
+- (void) setFrameSize:(CGSize)aSize {
 	
 	[super setFrameSize:aSize];
 
@@ -277,39 +277,93 @@
 
 
 
-- (MKCoordinateRegion) region {
+
+
+
+
+
+//	Region
+
+	- (MKCoordinateRegion) region {
 	
-	if (!m_map || !m_map.getBounds()) return nil;
-	return MKCoordinateRegionFromLatLngBounds(m_map.getBounds());
+		if (!m_map || !m_map.getBounds()) return nil;
+		return MKCoordinateRegionFromLatLngBounds(m_map.getBounds());
 
-}
+	}
 
-- (void) setRegion:(MKCoordinateRegion)aRegion {
+	- (void) setRegion:(MKCoordinateRegion)aRegion {
 
-	m_region = aRegion; if (!m_map) return;
-	[self setZoomLevel:m_map.getBoundsZoomLevel(LatLngBoundsFromMKCoordinateRegion(aRegion))];
-	[self setCenterCoordinate:aRegion.center];
+		m_region = aRegion; if (!m_map) return;
+		[self setZoomLevel:m_map.getBoundsZoomLevel(LatLngBoundsFromMKCoordinateRegion(aRegion))];
+		[self setCenterCoordinate:aRegion.center];
 	
-}
+	}
 
 
 
 
 
-- (void) setCenterCoordinate:(CLLocationCoordinate2D)aCoordinate {
 
-	if (m_centerCoordinate && CLLocationCoordinate2DEqualToCLLocationCoordinate2D(m_centerCoordinate, aCoordinate))
-	return;
 
-	m_centerCoordinate = new CLLocationCoordinate2D(aCoordinate);
 
-	if (!m_map) return;	
-	m_map.setCenter(LatLngFromCLLocationCoordinate2D(aCoordinate));
 
-	if ([[self delegate] respondsToSelector:@selector(mapView:regionDidChangeAnimated:)])
-	[[self delegate] mapView:self regionDidChangeAnimated:NO];
 
-}
+//	Center Coordinate
+	
+	- (void) setCenterCoordinate:(CLLocationCoordinate2D)aCoordinate {
+
+		if (m_centerCoordinate && CLLocationCoordinate2DEqualToCLLocationCoordinate2D(
+			
+			m_centerCoordinate, aCoordinate
+				
+		)) return;
+
+		m_centerCoordinate = new CLLocationCoordinate2D(aCoordinate);
+
+		if (!m_map)
+		return;
+		
+		m_map.setCenter(LatLngFromCLLocationCoordinate2D(aCoordinate));
+
+		if ([[self delegate] respondsToSelector:@selector(mapView:regionDidChangeAnimated:)])
+		[[self delegate] mapView:self regionDidChangeAnimated:NO];
+
+	}
+	
+	
+	- (CLLocationCoordinate2D) centerCoordinate {
+
+		return new CLLocationCoordinate2D(m_centerCoordinate);
+
+	}
+	
+	
+	- (void) setCenterCoordinateLatitude:(float)aLatitude {
+
+		[self setCenterCoordinate:new CLLocationCoordinate2D(aLatitude, [self centerCoordinateLongitude])];
+
+	}
+	
+	
+	- (float) centerCoordinateLatitude {
+
+		return [self centerCoordinate].latitude;
+
+	}
+	
+	
+	- (void) setCenterCoordinateLongitude:(float)aLongitude {
+
+		[self setCenterCoordinate:new CLLocationCoordinate2D([self centerCoordinateLatitude], aLongitude)];
+
+	}
+	
+	
+	- (float) centerCoordinateLongitude {
+
+		return [self centerCoordinate].longitude;
+
+	}
 
 
 
@@ -331,41 +385,16 @@
 
 
 
-- (CLLocationCoordinate2D) centerCoordinate {
 
-	return new CLLocationCoordinate2D(m_centerCoordinate);
 
-}
-
-- (void) setCenterCoordinateLatitude:(float)aLatitude {
-
-	[self setCenterCoordinate:new CLLocationCoordinate2D(aLatitude, [self centerCoordinateLongitude])];
-
-}
-
-- (float) centerCoordinateLatitude {
-	
-	return [self centerCoordinate].latitude;
-
-}
-
-- (void) setCenterCoordinateLongitude:(float)aLongitude {
-
-	[self setCenterCoordinate:new CLLocationCoordinate2D([self centerCoordinateLatitude], aLongitude)];
-
-}
-
-- (float) centerCoordinateLongitude {
-
-	return [self centerCoordinate].longitude;
-
-}
 
 - (void) setZoomLevel:(float)aZoomLevel {
 
 	m_zoomLevel = +aZoomLevel || 0;
+	
+	if (m_zoomLevel >= 0) return;
 	if (!m_map) return;
-	m_map.setZoom(m_zoomLevel);
+	m_map.setZoom(Math.abs(m_zoomLevel));
 
 }
 
@@ -494,52 +523,54 @@
 
 
 
-var GoogleMapsScriptQueue = [];
+//	Google Interfacing
 
-var performWhenGoogleMapsScriptLoaded = function(/*Function*/ aFunction) {
+	var GoogleMapsScriptQueue = [];
 
-	GoogleMapsScriptQueue.push(aFunction);
+	var performWhenGoogleMapsScriptLoaded = function(/*Function*/ aFunction) {
 
-//	Swizzle self out
-	performWhenGoogleMapsScriptLoaded = function() { GoogleMapsScriptQueue.push(aFunction); }
+		GoogleMapsScriptQueue.push(aFunction);
 
-//	If Google Maps is loaded, there is no need to load the script again
-	if (window.google && google.maps) return _MKMapViewMapsLoaded();
+	//	Swizzle self out
+		performWhenGoogleMapsScriptLoaded = function() { GoogleMapsScriptQueue.push(aFunction); }
 
-//	Otherwise, pull the script down from Google and wait
-	var DOMScriptElement = document.createElement("script");
-	DOMScriptElement.src = "http://www.google.com/jsapi?callback=_MKMapViewGoogleAjaxLoaderLoaded";
-	DOMScriptElement.type = "text/javascript";
+	//	If Google Maps is loaded, there is no need to load the script again
+		if (window.google && google.maps) return _MKMapViewMapsLoaded();
 
-	document.getElementsByTagName("head")[0].appendChild(DOMScriptElement);
+	//	Otherwise, pull the script down from Google and wait
+		var DOMScriptElement = document.createElement("script");
+		DOMScriptElement.src = "http://www.google.com/jsapi?callback=_MKMapViewGoogleAjaxLoaderLoaded";
+		DOMScriptElement.type = "text/javascript";
 
-}
+		document.getElementsByTagName("head")[0].appendChild(DOMScriptElement);
 
-function _MKMapViewGoogleAjaxLoaderLoaded () {
+	}
+
+	function _MKMapViewGoogleAjaxLoaderLoaded () {
 	
-	google.load("maps", "3.2", {
+		google.load("maps", "3.2", {
 	
-		"callback": _MKMapViewMapsLoaded,
-		"other_params": "sensor=false"
+			"callback": _MKMapViewMapsLoaded,
+			"other_params": "sensor=false"
 		
-	});
+		});
 
-	[[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
+		[[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
 
-}
+	}
 
-function _MKMapViewMapsLoaded() {
+	function _MKMapViewMapsLoaded () {
 
-//	Swizzle off delayed performing
+	//	Swizzle off delayed performing
 	
-	performWhenGoogleMapsScriptLoaded = function(aFunction) { aFunction(); }
+		performWhenGoogleMapsScriptLoaded = function(aFunction) { aFunction(); }
 		
-	var index = 0, count = GoogleMapsScriptQueue.length;
-	for (; index < count; ++index) GoogleMapsScriptQueue[index]();
+		var index = 0, count = GoogleMapsScriptQueue.length;
+		for (; index < count; ++index) GoogleMapsScriptQueue[index]();
 
-	[[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
+		[[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
 	
-}
+	}
 
 
 
@@ -560,39 +591,51 @@ function _MKMapViewMapsLoaded() {
 
 
 
-var  MKMapViewCenterCoordinateKey = @"MKMapViewCenterCoordinateKey",
-	MKMapViewZoomLevelKey = @"MKMapViewZoomLevelKey",
-	MKMapViewMapTypeKey = @"MKMapViewMapTypeKey";
+//	CPCoding
+	
+	var	MKMapViewCenterCoordinateKey = @"MKMapViewCenterCoordinateKey",
+		MKMapViewZoomLevelKey = @"MKMapViewZoomLevelKey",
+		MKMapViewMapTypeKey = @"MKMapViewMapTypeKey";
 
-@implementation MKMapView (CPCoding)
+	@implementation MKMapView (CPCoding)
 
-- (id) initWithCoder:(CPCoder)aCoder {
+	- (id) initWithCoder:(CPCoder)aCoder {
 
-	self = [super initWithCoder:aCoder];
+		self = [super initWithCoder:aCoder];
 
-	if (!self) return nil;
+		if (!self) return nil;
 
-	[self setCenterCoordinate:CLLocationCoordinate2DFromString([aCoder decodeObjectForKey:MKMapViewCenterCoordinateKey])];
-	[self setZoomLevel:[aCoder decodeObjectForKey:MKMapViewZoomLevelKey]];
-	[self setMapType:[aCoder decodeObjectForKey:MKMapViewMapTypeKey]];
+		[self setCenterCoordinate:CLLocationCoordinate2DFromString(
+			
+			[aCoder decodeObjectForKey:MKMapViewCenterCoordinateKey]
+		
+		)];
+		
+		[self setZoomLevel:[aCoder decodeObjectForKey:MKMapViewZoomLevelKey]];
+		[self setMapType:[aCoder decodeObjectForKey:MKMapViewMapTypeKey]];
 
-	[self _buildDOM];
+		[self _buildDOM];
 
-	return self;
+		return self;
 
-}
+	}
 
-- (void) encodeWithCoder:(CPCoder)aCoder {
+	- (void) encodeWithCoder:(CPCoder)aCoder {
 
-	[super encodeWithCoder:aCoder];
+		[super encodeWithCoder:aCoder];
 
-	[aCoder encodeObject:CPStringFromCLLocationCoordinate2D([self centerCoordinate]) forKey:MKMapViewCenterCoordinateKey];
-	[aCoder encodeObject:[self zoomLevel] forKey:MKMapViewZoomLevelKey];
-	[aCoder encodeObject:[self mapType] forKey:MKMapViewMapTypeKey];
+		[aCoder encodeObject:CPStringFromCLLocationCoordinate2D(
+			
+			[self centerCoordinate]
+			
+		) forKey:MKMapViewCenterCoordinateKey];
+		
+		[aCoder encodeObject:[self zoomLevel] forKey:MKMapViewZoomLevelKey];
+		[aCoder encodeObject:[self mapType] forKey:MKMapViewMapTypeKey];
 
-}
+	}
 
-@end
+	@end
 
 
 

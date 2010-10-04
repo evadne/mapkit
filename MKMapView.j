@@ -4,6 +4,9 @@
 // Created by Francisco Tolmasky.
 // Copyright (c) 2010 280 North, Inc.
 //
+// Forked: Evadne Wu at Iridia, 2010
+//
+//
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
 // files (the "Software"), to deal in the Software without
@@ -53,6 +56,7 @@
 @implementation MKMapView : CPView {
 
 	CLLocationCoordinate2D  m_centerCoordinate;
+	CLLocationCoordinate2D  m_previousTrackingLocation;
 	int m_zoomLevel;
 	MKMapType m_mapType;
 	BOOL m_scrollWheelZoomEnabled;
@@ -60,6 +64,7 @@
 //	Google Maps DOM
 	
 	DOMElement m_DOMMapElement;
+	DOMElement m_DOMGuardElement;
 	Object m_map;
 	Object m_map_overlay;
 
@@ -76,25 +81,6 @@
 	CPArray _dequeuedAnnotationViews;
 
 }
-
-
-
-
-
-- (void) didReceiveMemoryWarning {
-
-//	Probably just mean.
-	
-	var enumerator = [_dequeuedAnnotationViews enumerator], annotationView;
-	while (annotationView = [enumerator nextObject])
-	[annotationView removeFromSuperview];
-	
-}
-
-
-
-
-
 
 
 
@@ -178,27 +164,10 @@
 
 - (id) initWithFrame:(CGRect)aFrame centerCoordinate:(CLLocationCoordinate2D)aCoordinate {
 	
-	self = [super initWithFrame:aFrame];
-
-	if (!self) return nil;
+	self = [super initWithFrame:aFrame]; if (!self) return nil;
 	
-//	CPLog(@"Map View bundle path for resource is %@", [[CPBundle bundleForClass:MKMapView] pathForResource:@"MKMapBackdrop.png"]);
+	[self setBackgroundColor:[CPColor colorWithPatternImage:[[CPImage alloc] initWithContentsOfFile:[[CPBundle bundleForClass:[self class]] pathForResource:@"MKMapViewBackdrop_lightGrid.png"]]]];
 	
-	[self setBackgroundColor:
-	
-		[CPColor colorWithPatternImage:
-		
-			[[CPImage alloc] initWithContentsOfFile:
-			
-				[[CPBundle bundleForClass:[self class]] pathForResource:@"MKMapViewBackdrop_lightGrid.png"]
-	
-			]
-		
-		]
-		
-	];
-	
-	//[CPColor colorWithRed:229.0 / 255.0 green:227.0 / 255.0 blue:223.0 / 255.0 alpha:1.0]];
 	[self setCenterCoordinate:aCoordinate || new CLLocationCoordinate2D(52, -1)];
 	[self setZoomLevel:6];
 	[self setMapType:MKMapTypeStandard];
@@ -215,86 +184,112 @@
 
 
 - (void) _buildDOM {
-
+	
 	performWhenGoogleMapsScriptLoaded(function() {
-
+		
 		m_DOMMapElement = document.createElement("div");
 		m_DOMMapElement.id = "MKMapView" + [self UID];
-
-		var style = m_DOMMapElement.style,
+		
+		var	style = m_DOMMapElement.style,
 			bounds = [self bounds],
 			width = CGRectGetWidth(bounds),
 			height = CGRectGetHeight(bounds);
-
-		style.overflow = "hidden";
-		style.position = "absolute";
-		style.visibility = "visible";
-		style.zIndex = 0;
-		style.left = -width + "px";
-		style.top = -height + "px";
-		style.width = width + "px";
-		style.height = height + "px";
-
+			
+			style.overflow = "hidden";
+			style.position = "absolute";
+			style.visibility = "visible";
+			style.zIndex = 0;
+			style.left = -width + "px";
+			style.top = -height + "px";
+			style.width = width + "px";
+			style.height = height + "px";
+		
+		
+	//	Build the DOM	
+	//	
 	//	Google Maps can't figure out the size of the div if it's not in the DOM tree.
 	//	We have to temporarily place it somewhere on the screen to appropriately size it.
 	
 		document.body.appendChild(m_DOMMapElement);
 		
 		m_map = new google.maps.Map(m_DOMMapElement, {
-				
+			
 			mapTypeId: [[self class] _mapTypeObjectForMapType:m_mapType],
-			
 			backgroundColor: "transparent",
-			
 			mapTypeControl: false,
 			navigationControl: false,
 			scaleControl: false
-		
+	
 		});
-		
+	
 		m_map.setCenter(LatLngFromCLLocationCoordinate2D(m_centerCoordinate));
 		m_map.setZoom(m_zoomLevel);
-		
+	
 		m_map_overlay = new google.maps.OverlayView(); 
-		
-		m_map_overlay.draw = function () { 
-		    if (!this.ready) { 
-		        this.ready = true; 
-		        google.maps.event.trigger(this, 'ready'); 
-		    } 
-		}; 
-		
 		m_map_overlay.setMap(m_map);
+		m_map_overlay.draw = function () { 
+		
+			if (this.ready) return;
+		
+			this.ready = true; 
+			google.maps.event.trigger(this, 'ready'); 
+	
+		}; 
 		
 		style.left = "0px";
 		style.top = "0px";
-
-	//	Remove element from DOM before appending it somewhere else or you will get WRONG_DOCUMENT_ERRs (4)
+			
+			
+		//	Remove element from DOM before appending it somewhere else
+		//	or you will get WRONG_DOCUMENT_ERRs (4)
+			
 		document.body.removeChild(m_DOMMapElement);
 		_DOMElement.appendChild(m_DOMMapElement);
-	
-		if ([[self delegate] respondsToSelector:@selector(mapViewDidFinishLoading:)])
-		[[self delegate] mapViewDidFinishLoading:self];
 		
-		var updateCenterCoordinate = function() {
+		m_DOMGuardElement = document.createElement("div");
+
+		var style = m_DOMGuardElement.style;
+
+		style.overflow = "hidden";
+		style.position = "absolute";
+		style.visibility = "visible";
+		style.zIndex = 0;
+		style.left = "0px";
+		style.top = "0px";
+		style.width = "100%";
+		style.height = "100%";
+
+		_DOMElement.appendChild(m_DOMGuardElement);
+		
+		
+	//	Wire up event handlers
+		
+		var updateCenterCoordinate = function () {
 			
 			var newCenterCoordinate = CLLocationCoordinate2DFromLatLng(m_map.getCenter());
 			var centerCoordinate = [self centerCoordinate];
 
-			if (CLLocationCoordinate2DEqualToCLLocationCoordinate2D(centerCoordinate, newCenterCoordinate))
-			return;
+			if (CLLocationCoordinate2DEqualToCLLocationCoordinate2D(
+				
+				centerCoordinate, 
+				newCenterCoordinate
+				
+			)) return;
 			
 			[self setCenterCoordinate:newCenterCoordinate];
 			[[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
 			
 		}
-
+		
+		google.maps.event.addListener(m_map, "center_changed", updateCenterCoordinate);
+		google.maps.event.addListener(m_map, "moveend", updateCenterCoordinate);
+		google.maps.event.addListener(m_map, "resize", updateCenterCoordinate);
+		
+		
 		var updateZoomLevel = function() {
 
 			var newZoomLevel = m_map.getZoom();
 			var zoomLevel = [self zoomLevel];
-			
-			CPLog("New zoom level is %x, from %x", newZoomLevel, zoomLevel);
 			
 			if (newZoomLevel == zoomLevel) return;
 			
@@ -302,36 +297,12 @@
 			[[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
 			
 		}
-
-		google.maps.event.addListener(m_map, "idle", /* () */ function  () {
-			
-			//	Idle
-
-		});
 		
-		google.maps.event.addListener(m_map, "center_changed", updateCenterCoordinate);
-		google.maps.event.addListener(m_map, "moveend", updateCenterCoordinate);
-		google.maps.event.addListener(m_map, "resize", updateCenterCoordinate);
 		google.maps.event.addListener(m_map, "zoom_changed", updateZoomLevel);
-		google.maps.event.addListener(m_map, "bounds_changed", /* () */ function  () {
-
-			console.log("bounds has changed!");
-			
-			var bounds = m_map.getBounds();
-			
-			var ne = bounds.getNorthEast();
-			var sw = bounds.getSouthWest();
-			
-			
-			var neCoord = new CLLocationCoordinate2D(180, 89.9);
-			var swCoord = new CLLocationCoordinate2D(-180, -89.9);
-			
-			var nePoint = [self convertCoordinate:neCoord toPointToView:self];
-			var swPoint = [self convertCoordinate:swCoord toPointToView:self];
-			
-			CPLog(@"points? %f %f to %f %f", nePoint.x, nePoint.y, swPoint.x, swPoint.y);
-
-		})
+		
+		
+		if ([[self delegate] respondsToSelector:@selector(mapViewDidFinishLoading:)])
+		[[self delegate] mapViewDidFinishLoading:self];
 		
 	});
 
@@ -349,6 +320,17 @@
 - (void) _ensureWholeEarth {
 
 //	Ensure that the whole earth, at most, is visible in the viewport by ensuring that the “world” bounding box is at least of the same height of the viewport, and the width of the world is equal to, or wider than, the viewport.
+	
+	if (!CGRectContainsRect(
+		
+		[self bounds], 
+		CGRectInset(worldBounds, 24, 24)
+		
+	)) return;
+	
+	var worldSquareEdgeLength = Math.min(worldBounds.size.height, worldBounds.size.width);
+	
+	//	Create rect using worldSquareEdgeLength, position it on the current center coordinate, then center it vertically.  After that, convert the rect to LatLngBounds and call method that translates to fitBounds().
 	
 }
 
@@ -370,6 +352,8 @@
 	
 	style.width = CGRectGetWidth(bounds) + "px";
 	style.height = CGRectGetHeight(bounds) + "px";
+	
+	google.maps.event.trigger(m_map, 'resize');
 
 }
 
@@ -389,7 +373,7 @@
 
 
 //	Region
-
+	
 	- (MKCoordinateRegion) region {
 	
 		if (!m_map || !m_map.getBounds()) return nil;
@@ -429,7 +413,8 @@
 		if (!m_map)
 		return;
 		
-		m_map.setCenter(LatLngFromCLLocationCoordinate2D(aCoordinate));
+		//	setCenter
+		m_map.panTo(LatLngFromCLLocationCoordinate2D(aCoordinate));
 
 		if ([[self delegate] respondsToSelector:@selector(mapView:regionDidChangeAnimated:)])
 		[[self delegate] mapView:self regionDidChangeAnimated:NO];
@@ -498,9 +483,9 @@
 
 	m_zoomLevel = +aZoomLevel || 0;
 	
-	if (m_zoomLevel >= 0) return;
+//	if (m_zoomLevel >= 0) return;
 	if (!m_map) return;
-	m_map.setZoom(Math.abs(m_zoomLevel));
+	m_map.setZoom(m_zoomLevel);
 
 }
 
@@ -617,7 +602,11 @@
 
 	var pointInSelf = [self convertPoint:aPoint fromView:aView];
 	
-	var latlng = m_map_overlay.getProjection().fromContainerPixelToLatLng(new google.maps.Point(pointInSelf.x, pointInSelf.y));
+	var latlng = m_map_overlay.getProjection().fromContainerPixelToLatLng(
+		
+		new google.maps.Point(pointInSelf.x, pointInSelf.y)
+		
+	);
 
 	return CLLocationCoordinate2DFromLatLng(latlng);
 
@@ -627,6 +616,71 @@
 
 
 
+- (void) mouseDown:(CPEvent)anEvent {
+
+	if ([anEvent clickCount] === 2) {
+
+		CPLog(@"FIXME: zoom");
+
+		return;
+		
+	}
+
+	[self trackPan:anEvent];
+	[super mouseDown:anEvent];
+	
+}
+
+
+
+
+
+- (void) trackPan:(CPEvent)anEvent {
+	
+	CPLog(@"trackPan called");
+
+	var	type = [anEvent type],
+		currentLocation = [self convertPoint:[anEvent locationInWindow] fromView:nil];
+		
+	if (!m_previousTrackingLocation)
+	m_previousTrackingLocation = currentLocation;
+
+	if (type === CPLeftMouseUp) {
+	
+	//	Do nothing
+
+	} else {
+
+		if (type === CPLeftMouseDown) {
+
+		//	Do nothing.
+		
+		} else if (type === CPLeftMouseDragged) {
+
+			var	centerCoordinate = [self centerCoordinate],
+				lastCoordinate = [self convertPoint:m_previousTrackingLocation toCoordinateFromView:self],
+				currentCoordinate = [self convertPoint:currentLocation toCoordinateFromView:self],
+				
+				delta = new CLLocationCoordinate2D(
+					currentCoordinate.latitude - lastCoordinate.latitude,
+					currentCoordinate.longitude - lastCoordinate.longitude
+					
+				);
+
+			centerCoordinate.latitude -= delta.latitude;
+			centerCoordinate.longitude -= delta.longitude;
+
+			[self setCenterCoordinate:centerCoordinate];
+
+		}
+
+			[CPApp setTarget:self selector:@selector(trackPan:) forNextEventMatchingMask:CPLeftMouseDraggedMask | CPLeftMouseUpMask untilDate:nil inMode:nil dequeue:YES];
+		
+	}
+
+	m_previousTrackingLocation = currentLocation;
+
+}
 
 
 
@@ -686,22 +740,24 @@
 }
 
 
+
+
+
+- (void)resizeWithOldSuperviewSize:(CGSize)inSize {
+	
+	[super resizeWithOldSuperviewSize:inSize];
+	
+	CPLog(@"resizeWithOldSuperviewSize called on map view");
+	
+	try {
+	
+		google.maps.event.trigger(m_map, 'resize');
+	
+	} catch (e) {}
+	
+}
+
 @end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -755,26 +811,11 @@
 		[[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
 	
 	}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	
+	
+	
+	
+	
 //	CPCoding
 	
 	var	MKMapViewCenterCoordinateKey = @"MKMapViewCenterCoordinateKey",

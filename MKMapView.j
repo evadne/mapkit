@@ -79,6 +79,8 @@
 	CPArray _annotations;
 	CPArray _visibleAnnotationViews;
 	CPArray _dequeuedAnnotationViews;
+	
+	BOOL _zooming;
 
 }
 
@@ -287,14 +289,18 @@
 		
 		
 		var updateZoomLevel = function() {
+		
+		//	Zoom is finished
+			
+			_zooming = YES;
 
-			var newZoomLevel = m_map.getZoom();
-			var zoomLevel = [self zoomLevel];
-			
-			if (newZoomLevel == zoomLevel) return;
-			
-			[self setZoomLevel:newZoomLevel];
-			[[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
+			// var newZoomLevel = m_map.getZoom();
+			// var zoomLevel = [self zoomLevel];
+			// 
+			// if (newZoomLevel == zoomLevel) return;
+			// 
+			// [self setZoomLevel:newZoomLevel];
+			// [[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
 			
 		}
 		
@@ -628,6 +634,24 @@
 
 	[self trackPan:anEvent];
 	[super mouseDown:anEvent];
+	
+}
+
+
+
+
+
+- (void) scrollWheel:(CPEvent)anEvent {
+	
+	//	Only handle vertical scroll (zooming) for now.
+	//	For now, the delta of the scroll event is not handled.
+	//	
+	//	We simply continue scrolling if after a specified time interval, 
+	//	the event is still in the same direction.
+	
+	if (ABS([anEvent deltaY]) <= 5) return;
+	
+	CPLog(@"scrollwheel event got! %@ %@ %@ %@", anEvent, [anEvent deltaX], [anEvent deltaY], [anEvent deltaZ]);
 	
 }
 

@@ -683,10 +683,21 @@
 - (void) mouseDown:(CPEvent)anEvent {
 
 	if ([anEvent clickCount] === 2) {
-
-		CPLog(@"FIXME: zoom");
-
-		return;
+		
+		var zoomRequestPoint = [self convertPoint:[anEvent locationInWindow] fromView:nil];
+		var zoomRequestCoords = [self convertPoint:zoomRequestPoint toCoordinateFromView:self];
+		
+		var centerCoords = [self centerCoordinate];
+		
+		var finalCenterCoords = CLLocationCoordinate2DMake(
+			
+			(centerCoords.latitude + zoomRequestCoords.latitude) * 0.5,
+			(centerCoords.longitude + zoomRequestCoords.longitude) * 0.5
+			
+		);
+		
+		[self setCenterCoordinate:finalCenterCoords pan:YES];
+		[self setZoomLevel:([self zoomLevel] + 1)];
 		
 	}
 

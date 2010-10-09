@@ -255,6 +255,22 @@ function MKGeographicalDistanceBetweenCoordinates (fromCoords, toCoords) {
 
 
 
+function MKRegionContainsCLLocationCoordinate2D (inRegion, inCoordinate) {
+
+//	TODO: Test MKMapView (Cocoa Touch) conformity, and see if we need to use >= instead of >
+	
+	if (ABS(inCoordinate.longitude - inRegion.center.longitude) > inRegion.span.longitudeDelta) return NO;
+	
+	if (ABS(inCoordinate.latitude - inRegion.center.latitude) > inRegion.span.latitudeDelta) return NO;
+	
+	return YES;
+	
+}
+
+
+
+
+
 
 
 

@@ -63,7 +63,7 @@
 
 //	Google Maps DOM
 	
-	DOMElement m_DOMMapElement;
+	DOMElement m_DOMMapElement @accessors(readonly,getter=domElement);
 	DOMElement m_DOMGuardElement;
 	Object m_map;
 	Object m_map_overlay;
@@ -310,6 +310,9 @@
 		var handleIdle = function  () {
 
 			[self _ensureWholeEarth];
+			
+			if ([[self delegate] respondsToSelector:@selector(mapViewDidIdle:)])
+			[[self delegate] mapViewDidIdle:self];
 
 		}
 		

@@ -78,7 +78,7 @@
 
 	CPArray _annotations;
 	CPArray _visibleAnnotationViews;
-	CPArray _dequeuedAnnotationViews;
+	CPSet _dequeuedAnnotationViews;
 	
 	BOOL _zooming;
 
@@ -858,40 +858,88 @@
 
 - (void) addAnnotation:(id)anAnnotation {
 	
+	if (![anAnnotation valueForKey:@"coordinates"]) return;
+	
+	[_annotations addObject:anAnnotation];
+	
+	//	TODO: Perhaps ask the delegate for an annotation view
 	
 }
+
+	- (CPArray) _annotationsForRegion:(MKCoordinateRegion)inRegion {
+		
+		var enumerator = [_annotations objectEnumerator], object = nil;
+		
+		var annotationIsInRegion = function (inAnnotation) {
+			
+			return MKRegionContainsCLLocationCoordinate2D(inRegion, inAnnotation.coordinate);
+			
+		}
+		
+		var responseArray = [CPMutableArray array];
+		
+		while (object = [enumerator nextObject]) {
+			
+			if (annotationIsInRegion(inRegion))
+			[responseArray addObject:object];
+			
+		}
+		
+		return responseArray;
+		
+	}
 
 
 - (void) addAnnotations:(CPArray)annotations {
 	
+	var enumerator = [annotations objectEnumerator], object = nil;
 	
+	while (object = [enumerator nextObject])
+	[self addAnnotation:object];
 	
 }
 
 
 - (void) removeAnnotation:(id)anAnnotation {
 	
-	
+	if ([_annotations containsObject:anAnnotation])
+	[_annotations removeObject:_annotations];
 	
 }
 
 
 - (void) removeAnnotations:(CPArray)annotations {
 	
-	
+	var enumerator = [annotations objectEmumerator], object = nil;
+	while (object = [enumerator nextObjext]) {
+		
+		[self removeAnnotation:object];
+		
+	}
 	
 }
 
 
 - (MKAnnotationView) viewForAnnotation:(id)annotation {
 	
-	
+	if ([[self delegate] respondsToSelector:@selector(mapView:viewForAnnotation:)])
+	return [[self delegate] mapView:self viewForAnnotation:annotation];
 	
 }
 
 
 - (MKAnnotationView) dequeueReusableAnnotationViewWithIdentifier:(CPString)identifier {
 	
+	var anyMapView = [_dequeuedAnnotationViews anyObject];
+	
+	if (anyAnnotationView) {
+	
+		[_dequeuedAnnotationViews removeObject:anyAnnotationView];
+		return anyAnnotationView;
+		
+	}
+	
+	return nil;
 	
 }
 
@@ -902,8 +950,6 @@
 - (void)resizeWithOldSuperviewSize:(CGSize)inSize {
 	
 	[super resizeWithOldSuperviewSize:inSize];
-	
-	CPLog(@"resizeWithOldSuperviewSize called on map view");
 	
 	try {
 	

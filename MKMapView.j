@@ -220,7 +220,8 @@
 			backgroundColor: "transparent",
 			mapTypeControl: false,
 			navigationControl: false,
-			scaleControl: false
+			scaleControl: false,
+			streetViewControl: false
 	
 		});
 	

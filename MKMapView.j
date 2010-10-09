@@ -307,6 +307,14 @@
 		
 		google.maps.event.addListener(m_map, "zoom_changed", updateZoomLevel);
 		
+		var handleIdle = function  () {
+
+			[self _ensureWholeEarth];
+
+		}
+		
+		google.maps.event.addListener(m_map, "idle", handleIdle);
+		
 		
 		if ([[self delegate] respondsToSelector:@selector(mapViewDidFinishLoading:)])
 		[[self delegate] mapViewDidFinishLoading:self];
@@ -328,13 +336,27 @@
 
 	var worldWidth = null;
 	
-	var projection = m_map_overlay.getProjection();
-	if (projection) worldWidth = projection.getWorldWidth();
+	var projection = m_map_overlay.getProjection(), northEast = null, southWest = null;
 
+	if (projection) {
+		
+	//	Note that +180 and -180 longitude is on the same line (same X value)
+		
+		worldWidth = projection.getWorldWidth();
+		northEast = [self convertCoordinate:CLLocationCoordinate2DMake(85.15, 180) toPointToView:self];
+		southWest = [self convertCoordinate:CLLocationCoordinate2DMake(-85.15, -180) toPointToView:self];
+		
+		southWest.x -= worldWidth;
 	
-	var northEast = [self convertCoordinate:CLLocationCoordinate2DMake(85.15, 179.5) toPointToView:self];
-	var southWest = [self convertCoordinate:CLLocationCoordinate2DMake(-85.15, -179.5) toPointToView:self];
+	} else {
+		
+		northEast = [self convertCoordinate:CLLocationCoordinate2DMake(85.15, 179.5) toPointToView:self];
+		southWest = [self convertCoordinate:CLLocationCoordinate2DMake(-85.15, -179.5) toPointToView:self];	
+		
+	}
 	
+	// CGPointDump(northEast, @"northEast point");
+	// CGPointDump(southWest, @"southWest point");
 	
 	return CGRectMake(
 	
@@ -358,7 +380,7 @@
 	var selfBounds = [self bounds];
 	if (!selfBounds) return;
 	
-	if (CPRectContainsRect(worldBounds, selfBounds))
+	if (CGRectContainsRect(worldBounds, selfBounds))
 	return;
 	
 	var worldCenterSquare = CGAlignedRectMake(
@@ -369,8 +391,8 @@
 		kCGAlignmentPointRefCenter
 		
 	);
-	
-	[self setVisibleMapRect:worldCenterSquare animated:YES];
+		
+	[self setVisibleMapRect:worldCenterSquare animated:NO];
 	
 }
 
@@ -539,10 +561,7 @@
 	m_zoomLevel = Math.floor(m_zoomLevel);
 
 	if (!m_map) return;
-	m_map.setZoom(m_zoomLevel);
-	
-	[self _ensureWholeEarth];
-	
+	m_map.setZoom(m_zoomLevel);	
 	m_zoomLevel = m_map.getZoom();
 
 }
@@ -652,7 +671,7 @@
 		LatLngFromCLLocationCoordinate2D(aCoordinate)
 		
 	);
-
+	
 	return [self convertPoint:CGPointMake(pointInSelf.x, pointInSelf.y) toView:aView];
 
 }
@@ -742,36 +761,43 @@
 	var	type = [anEvent type],
 		currentLocation = [self convertPoint:[anEvent locationInWindow] fromView:nil];
 		
-//	if (!m_previousTrackingLocation)
-//	m_previousTrackingLocation = currentLocation;
 
 	if (type === CPLeftMouseUp) {
-	
-		CPLog(@"left mouse up.  ensuring whole earth.");
-	
-		[self _ensureWholeEarth];
+			
+		[self _ensureWholeEarth];		
+		m_previousTrackingLocation = currentLocation;
 
 	} else {
 
 		if (type === CPLeftMouseDown) {
 
 			m_previousTrackingLocation = currentLocation;
-
-		//	Do nothing.
 		
 		} else if (type === CPLeftMouseDragged) {
 			
-			//	Stop the map from overflowing
-			
 			var worldBounds = [self _worldBounds];
+			var worldMinY = worldBounds.origin.y;
+			var worldMaxY = worldMinY + worldBounds.size.height;
+
+			var viewBounds = [self bounds];
+			var viewMinY = viewBounds.origin.y;
+			var viewMaxY = viewMinY + viewBounds.size.height;
 			
-			if (worldBounds.origin.y >= -5)
-			if ((m_previousTrackingLocation.y - currentLocation.y) < 0)
-			currentLocation = m_previousTrackingLocation;
+			var deltaY = currentLocation.y - m_previousTrackingLocation.y;
 			
-			if ((worldBounds.origin.y + worldBounds.size.height - CGRectGetHeight([self frame])) <= 5)
-			if ((m_previousTrackingLocation.y - currentLocation.y) > 0)
-			currentLocation = m_previousTrackingLocation;
+			if (deltaY > 0) {
+				
+				if ((worldMinY + deltaY) > viewMinY)
+				deltaY = 0;
+				
+			} else if (deltaY < 0) {
+				
+				if ( (worldMaxY + deltaY) < viewMaxY )
+				deltaY = 0;
+				
+			}
+			
+			currentLocation.y = m_previousTrackingLocation.y + deltaY;
 			
 			var	centerCoordinate = [self centerCoordinate],
 				lastCoordinate = [self convertPoint:m_previousTrackingLocation toCoordinateFromView:self],
@@ -805,23 +831,18 @@
 
 - (void) setVisibleMapRect:(CGRect)inRect animated:(BOOL)inAnimate {
 
-//	Suppress for now
+//	Arbitrary zoom levels are NOT supported.
+//	
+//	TODO: Ensure that the rect is shown, and track a recursion count
+//	so if showing the rect cause _ensureWholeEarth to fail, _ensureWholeEarth is temporarily suppressed
+	 
 	return;
+	
+	if (inRect.size.height < [self bounds].size.height) return;
+	if (inRect.size.width < [self bounds].size.width) return;
 	
 	var latLngBounds = new google.maps.LatLngBounds;
 		
-	latLngBounds.extend(LatLngFromCLLocationCoordinate2D([self convertPoint:CGPointMake(
-		
-		inRect.origin.x, inRect.origin.y
-	
-	) toCoordinateFromView:self]));
-	
-	latLngBounds.extend(LatLngFromCLLocationCoordinate2D([self convertPoint:CGPointMake(
-		
-		inRect.origin.x + inRect.size.width, inRect.origin.y + inRect.size.height
-	
-	) toCoordinateFromView:self]));
-	
 	latLngBounds.extend(LatLngFromCLLocationCoordinate2D([self convertPoint:CGPointMake(
 		
 		inRect.origin.x, inRect.origin.y

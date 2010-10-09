@@ -739,31 +739,46 @@
 
 - (void) trackPan:(CPEvent)anEvent {
 	
-	CPLog(@"trackPan called");
-
 	var	type = [anEvent type],
 		currentLocation = [self convertPoint:[anEvent locationInWindow] fromView:nil];
 		
-	if (!m_previousTrackingLocation)
-	m_previousTrackingLocation = currentLocation;
+//	if (!m_previousTrackingLocation)
+//	m_previousTrackingLocation = currentLocation;
 
 	if (type === CPLeftMouseUp) {
 	
-	//	Do nothing
+		CPLog(@"left mouse up.  ensuring whole earth.");
+	
+		[self _ensureWholeEarth];
 
 	} else {
 
 		if (type === CPLeftMouseDown) {
 
+			m_previousTrackingLocation = currentLocation;
+
 		//	Do nothing.
 		
 		} else if (type === CPLeftMouseDragged) {
-
+			
+			//	Stop the map from overflowing
+			
+			var worldBounds = [self _worldBounds];
+			
+			if (worldBounds.origin.y >= -5)
+			if ((m_previousTrackingLocation.y - currentLocation.y) < 0)
+			currentLocation = m_previousTrackingLocation;
+			
+			if ((worldBounds.origin.y + worldBounds.size.height - CGRectGetHeight([self frame])) <= 5)
+			if ((m_previousTrackingLocation.y - currentLocation.y) > 0)
+			currentLocation = m_previousTrackingLocation;
+			
 			var	centerCoordinate = [self centerCoordinate],
 				lastCoordinate = [self convertPoint:m_previousTrackingLocation toCoordinateFromView:self],
 				currentCoordinate = [self convertPoint:currentLocation toCoordinateFromView:self],
 				
 				delta = new CLLocationCoordinate2D(
+				
 					currentCoordinate.latitude - lastCoordinate.latitude,
 					currentCoordinate.longitude - lastCoordinate.longitude
 					
@@ -772,11 +787,11 @@
 			centerCoordinate.latitude -= delta.latitude;
 			centerCoordinate.longitude -= delta.longitude;
 
-			[self setCenterCoordinate:centerCoordinate];
+			[self setCenterCoordinate:centerCoordinate pan:NO];
 
 		}
 
-			[CPApp setTarget:self selector:@selector(trackPan:) forNextEventMatchingMask:CPLeftMouseDraggedMask | CPLeftMouseUpMask untilDate:nil inMode:nil dequeue:YES];
+		[CPApp setTarget:self selector:@selector(trackPan:) forNextEventMatchingMask:CPLeftMouseDraggedMask | CPLeftMouseUpMask untilDate:nil inMode:nil dequeue:YES];
 		
 	}
 

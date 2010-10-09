@@ -642,7 +642,10 @@
 
 - (CGPoint) convertCoordinate:(CLLocationCoordinate2D)aCoordinate toPointToView:(CPView)aView {
 
-	if (!m_map) return CGPointMakeZero();
+	if (!m_map || !m_map_overlay) return CGPointMakeZero();
+
+	var projection = m_map_overlay.getProjection();
+	if (!projection) return CGPointMakeZero();
 
 	var pointInSelf = m_map_overlay.getProjection().fromLatLngToContainerPixel(
 		
@@ -656,7 +659,10 @@
 
 - (CLLocationCoordinate2D) convertPoint:(CGPoint)aPoint toCoordinateFromView:(CPView)aView {
 
-	if (!m_map) return new CLLocationCoordinate2D();
+	if (!m_map || !m_map_overlay) return new CLLocationCoordinate2D();
+
+	var projection = m_map_overlay.getProjection();
+	if (!projection) return new CLLocationCoordinate2D();
 
 	var pointInSelf = [self convertPoint:aPoint fromView:aView];
 	
@@ -665,7 +671,7 @@
 		new google.maps.Point(pointInSelf.x, pointInSelf.y)
 		
 	);
-
+	
 	return CLLocationCoordinate2DFromLatLng(latlng);
 
 }

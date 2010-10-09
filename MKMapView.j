@@ -708,9 +708,18 @@
 	//	the event is still in the same direction.
 	
 	if (ABS([anEvent deltaY]) <= 5) return;
+	var scrollDown = !!([anEvent deltaY] < 0);
 	
-	CPLog(@"scrollwheel event got! %@ %@ %@ %@", anEvent, [anEvent deltaX], [anEvent deltaY], [anEvent deltaZ]);
+	var now = [CPDate date];
 	
+	if (self.lastScrollDate)
+	if ([now timeIntervalSinceDate:self.lastScrollDate] < 0.125)
+	return;
+	
+	[self setZoomLevel:([self zoomLevel] + (scrollDown ? 1 : -1))];
+	
+	self.lastScrollDate = now;
+
 }
 
 

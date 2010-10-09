@@ -117,13 +117,13 @@
 
 
 
-+ (CPSet)keyPathsForValuesAffectingCenterCoordinateLatitude {
++ (CPSet) keyPathsForValuesAffectingCenterCoordinateLatitude {
 	
 	return [CPSet setWithObjects:@"centerCoordinate"];
 	
 }
 
-+ (CPSet)keyPathsForValuesAffectingCenterCoordinateLongitude {
++ (CPSet) keyPathsForValuesAffectingCenterCoordinateLongitude {
 	
 	return [CPSet setWithObjects:@"centerCoordinate"];
 

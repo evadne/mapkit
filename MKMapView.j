@@ -279,7 +279,7 @@
 				
 			)) return;
 			
-			[self setCenterCoordinate:newCenterCoordinate];
+			[self setCenterCoordinate:newCenterCoordinate pan:NO];
 			[[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
 			
 		}
@@ -324,20 +324,53 @@
 
 
 
+- (CGRect) _worldBounds {
+
+	var worldWidth = null;
+	
+	var projection = m_map_overlay.getProjection();
+	if (projection) worldWidth = projection.getWorldWidth();
+
+	
+	var northEast = [self convertCoordinate:CLLocationCoordinate2DMake(85.15, 179.5) toPointToView:self];
+	var southWest = [self convertCoordinate:CLLocationCoordinate2DMake(-85.15, -179.5) toPointToView:self];
+	
+	
+	return CGRectMake(
+	
+		southWest.x,
+		northEast.y,
+
+		worldWidth || ABS(northEast.x - southWest.x),
+		ABS(northEast.y - southWest.y)
+		
+	);
+	
+}
+
 - (void) _ensureWholeEarth {
 
 //	Ensure that the whole earth, at most, is visible in the viewport by ensuring that the “world” bounding box is at least of the same height of the viewport, and the width of the world is equal to, or wider than, the viewport.
 	
-	if (!CGRectContainsRect(
-		
-		[self bounds], 
-		CGRectInset(worldBounds, 24, 24)
-		
-	)) return;
+	var worldBounds = [self _worldBounds];
+	if (!worldBounds) return;
 	
-	var worldSquareEdgeLength = Math.min(worldBounds.size.height, worldBounds.size.width);
+	var selfBounds = [self bounds];
+	if (!selfBounds) return;
 	
-	//	Create rect using worldSquareEdgeLength, position it on the current center coordinate, then center it vertically.  After that, convert the rect to LatLngBounds and call method that translates to fitBounds().
+	if (CPRectContainsRect(worldBounds, selfBounds))
+	return;
+	
+	var worldCenterSquare = CGAlignedRectMake(
+		
+		CGRectMake(0, 0, worldBounds.size.height, worldBounds.size.height),
+		kCGAlignmentPointRefCenter,
+		selfBounds,
+		kCGAlignmentPointRefCenter
+		
+	);
+	
+	[self setVisibleMapRect:worldCenterSquare animated:YES];
 	
 }
 
@@ -406,22 +439,35 @@
 
 
 //	Center Coordinate
-	
+
 	- (void) setCenterCoordinate:(CLLocationCoordinate2D)aCoordinate {
+		
+		[self setCenterCoordinate:aCoordinate pan:YES];
+		
+	}
+
+	- (void) setCenterCoordinate:(CLLocationCoordinate2D)aCoordinate pan:(BOOL)shouldPan {
 
 		if (m_centerCoordinate && CLLocationCoordinate2DEqualToCLLocationCoordinate2D(
 			
 			m_centerCoordinate, aCoordinate
 				
 		)) return;
-
+		
 		m_centerCoordinate = new CLLocationCoordinate2D(aCoordinate);
 
 		if (!m_map)
 		return;
 		
-		//	setCenter
-		m_map.panTo(LatLngFromCLLocationCoordinate2D(aCoordinate));
+		if (shouldPan) {
+
+			m_map.panTo(LatLngFromCLLocationCoordinate2D(aCoordinate));
+		
+		} else {
+			
+			m_map.setCenter(LatLngFromCLLocationCoordinate2D(aCoordinate));
+			
+		}
 
 		if ([[self delegate] respondsToSelector:@selector(mapView:regionDidChangeAnimated:)])
 		[[self delegate] mapView:self regionDidChangeAnimated:NO];
@@ -487,12 +533,17 @@
 
 
 - (void) setZoomLevel:(float)aZoomLevel {
-
-	m_zoomLevel = +aZoomLevel || 0;
 	
-//	if (m_zoomLevel >= 0) return;
+	m_zoomLevel = +aZoomLevel || 0;
+	m_zoomLevel = MAX(m_zoomLevel, 2);
+	m_zoomLevel = Math.floor(m_zoomLevel);
+
 	if (!m_map) return;
 	m_map.setZoom(m_zoomLevel);
+	
+	[self _ensureWholeEarth];
+	
+	m_zoomLevel = m_map.getZoom();
 
 }
 
@@ -705,6 +756,45 @@
 
 	m_previousTrackingLocation = currentLocation;
 
+}
+
+
+
+
+
+- (void) setVisibleMapRect:(CGRect)inRect animated:(BOOL)inAnimate {
+
+//	Suppress for now
+	return;
+	
+	var latLngBounds = new google.maps.LatLngBounds;
+		
+	latLngBounds.extend(LatLngFromCLLocationCoordinate2D([self convertPoint:CGPointMake(
+		
+		inRect.origin.x, inRect.origin.y
+	
+	) toCoordinateFromView:self]));
+	
+	latLngBounds.extend(LatLngFromCLLocationCoordinate2D([self convertPoint:CGPointMake(
+		
+		inRect.origin.x + inRect.size.width, inRect.origin.y + inRect.size.height
+	
+	) toCoordinateFromView:self]));
+	
+	latLngBounds.extend(LatLngFromCLLocationCoordinate2D([self convertPoint:CGPointMake(
+		
+		inRect.origin.x, inRect.origin.y
+	
+	) toCoordinateFromView:self]));
+	
+	latLngBounds.extend(LatLngFromCLLocationCoordinate2D([self convertPoint:CGPointMake(
+		
+		inRect.origin.x + inRect.size.width, inRect.origin.y + inRect.size.height
+	
+	) toCoordinateFromView:self]));
+	
+	m_map.fitBounds(latLngBounds);
+	
 }
 
 

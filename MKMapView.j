@@ -70,6 +70,11 @@
 	CPArray _annotations;
 	CPArray _visibleAnnotationViews;
 	CPSet _dequeuedAnnotationViews;
+	
+	
+//	CPMenu Support
+	
+	CPMenu _menuForMapTypes;
 
 }
 
@@ -86,17 +91,6 @@
 	];
 
 }
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -929,6 +923,50 @@
 
 
 
+
+@implementation MKMapView (CPMenu)
+
+- (CPMenu) menuForMapTypes {
+	
+	if (_menuForMapTypes) return _menuForMapTypes;
+	_menuForMapTypes = [[CPMenu alloc] init];
+	
+	[_menuForMapTypes setDelegate:self];
+	
+	var item  = function (inTitle, inAction, inRepresentedObject) {
+		
+		CPLog(@"item asked for menu item with title %@, rep obj %@", inTitle, inRepresentedObject);
+		
+		var menuItem = [[CPMenuItem alloc] initWithTitle:inTitle action:inAction keyEquivalent:nil];
+		[menuItem setTarget:self];
+		[menuItem setRepresentedObject:inRepresentedObject];
+		
+		CPLog(@"item returning menu item %@ with title %@, rep obj %@", menuItem, [menuItem title], [menuItem representedObject]);
+		
+		return menuItem;
+		
+	}
+	
+	var	enumerator = [MKMapTypes keyEnumerator],
+		key = nil;
+		
+	while (key = [enumerator nextObject])
+	[_menuForMapTypes addItem:item(key, @selector(menuDidSelectMapType:), [MKMapTypes objectForKey:key])];
+	
+	return _menuForMapTypes;
+	
+}
+
+- (IBAction) menuDidSelectMapType:(id)sender {
+
+	CPLog(@"menuDidSelectMapType: %@", sender);
+	CPLog(@"[sender representedObject] %@", [sender representedObject]);
+	
+	[self setMapType:[sender representedObject]];
+	
+}
+
+@end
 
 //	Google Interfacing
 

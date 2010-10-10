@@ -29,3 +29,12 @@ MKMapTypeStandard           = 0;
 MKMapTypeHybrid             = 1;
 MKMapTypeSatellite          = 2;
 MKMapTypeTerrain            = 3;
+
+MKMapTypes = [CPDictionary dictionaryWithObjectsAndKeys:
+	
+	MKMapTypeStandard, @"Standard",
+	MKMapTypeHybrid, @"Hybrid",
+	MKMapTypeSatellite, @"Satellite",
+	MKMapTypeTerrain, @"Terrain"
+	
+]

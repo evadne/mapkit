@@ -71,7 +71,7 @@
 
 //	Delegation
 	
-	id _delegate @accessors(property=delegate);
+	id delegate @accessors;
 	
 	
 //	Annotations
@@ -79,8 +79,6 @@
 	CPArray _annotations;
 	CPArray _visibleAnnotationViews;
 	CPSet _dequeuedAnnotationViews;
-	
-	BOOL _zooming;
 
 }
 
@@ -289,24 +287,6 @@
 		google.maps.event.addListener(m_map, "resize", updateCenterCoordinate);
 		
 		
-		var updateZoomLevel = function() {
-		
-		//	Zoom is finished
-			
-			_zooming = YES;
-
-			// var newZoomLevel = m_map.getZoom();
-			// var zoomLevel = [self zoomLevel];
-			// 
-			// if (newZoomLevel == zoomLevel) return;
-			// 
-			// [self setZoomLevel:newZoomLevel];
-			// [[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
-			
-		}
-		
-		google.maps.event.addListener(m_map, "zoom_changed", updateZoomLevel);
-		
 		var handleIdle = function  () {
 
 			[self _ensureWholeEarth];
@@ -337,18 +317,16 @@
 
 - (CGRect) _worldBounds {
 
-	var worldWidth = null;
-	
-	var projection = m_map_overlay.getProjection(), northEast = null, southWest = null;
+	var	worldWidth = null,
+		projection = m_map_overlay.getProjection(), 
+		northEast = null, 
+		southWest = null;
 
 	if (projection) {
-		
-	//	Note that +180 and -180 longitude is on the same line (same X value)
 		
 		worldWidth = projection.getWorldWidth();
 		northEast = [self convertCoordinate:CLLocationCoordinate2DMake(85.15, 180) toPointToView:self];
 		southWest = [self convertCoordinate:CLLocationCoordinate2DMake(-85.15, -180) toPointToView:self];
-		
 		southWest.x -= worldWidth;
 	
 	} else {
@@ -358,44 +336,31 @@
 		
 	}
 	
-	// CGPointDump(northEast, @"northEast point");
-	// CGPointDump(southWest, @"southWest point");
-	
 	return CGRectMake(
 	
-		southWest.x,
-		northEast.y,
-
-		worldWidth || ABS(northEast.x - southWest.x),
-		ABS(northEast.y - southWest.y)
+		southWest.x, northEast.y,
+		(worldWidth || ABS(northEast.x - southWest.x)), ABS(northEast.y - southWest.y)
 		
 	);
 	
 }
 
-- (void) _ensureWholeEarth {
 
-//	Ensure that the whole earth, at most, is visible in the viewport by ensuring that the “world” bounding box is at least of the same height of the viewport, and the width of the world is equal to, or wider than, the viewport.
+
+
+
+- (void) _ensureWholeEarth {
 	
-	var worldBounds = [self _worldBounds];
-	if (!worldBounds) return;
+	var worldBounds = [self _worldBounds];	if (!worldBounds) return;
+	var selfBounds = [self bounds];	if (!selfBounds) return;
+	if (CGRectContainsRect(worldBounds, selfBounds)) return;
 	
-	var selfBounds = [self bounds];
-	if (!selfBounds) return;
-	
-	if (CGRectContainsRect(worldBounds, selfBounds))
-	return;
-	
-	var worldCenterSquare = CGAlignedRectMake(
+	[self setVisibleMapRect:CGAlignedRectMake(
 		
-		CGRectMake(0, 0, worldBounds.size.height, worldBounds.size.height),
-		kCGAlignmentPointRefCenter,
-		selfBounds,
-		kCGAlignmentPointRefCenter
+		CGRectMake(0, 0, worldBounds.size.height, worldBounds.size.height), kCGAlignmentPointRefCenter,
+		selfBounds, kCGAlignmentPointRefCenter
 		
-	);
-		
-	[self setVisibleMapRect:worldCenterSquare animated:NO];
+	) animated:NO];
 	
 }
 
@@ -421,6 +386,17 @@
 	google.maps.event.trigger(m_map, 'resize');
 
 }
+
+- (void) resizeWithOldSuperviewSize:(CGSize)inSize {
+	
+	[super resizeWithOldSuperviewSize:inSize];
+	try {	google.maps.event.trigger(m_map, 'resize');	} catch (e) {}
+	
+}
+
+
+
+
 
 - (Object) namespace {
 	
@@ -470,7 +446,7 @@
 		[self setCenterCoordinate:aCoordinate pan:YES];
 		
 	}
-
+	
 	- (void) setCenterCoordinate:(CLLocationCoordinate2D)aCoordinate pan:(BOOL)shouldPan {
 
 		if (m_centerCoordinate && CLLocationCoordinate2DEqualToCLLocationCoordinate2D(
@@ -967,22 +943,6 @@
 	
 }
 
-
-
-
-
-- (void)resizeWithOldSuperviewSize:(CGSize)inSize {
-	
-	[super resizeWithOldSuperviewSize:inSize];
-	
-	try {
-	
-		google.maps.event.trigger(m_map, 'resize');
-	
-	} catch (e) {}
-	
-}
-
 @end
 
 
@@ -1044,49 +1004,49 @@
 	
 //	CPCoding
 	
-	var	MKMapViewCenterCoordinateKey = @"MKMapViewCenterCoordinateKey",
-		MKMapViewZoomLevelKey = @"MKMapViewZoomLevelKey",
-		MKMapViewMapTypeKey = @"MKMapViewMapTypeKey";
+var	MKMapViewCenterCoordinateKey = @"MKMapViewCenterCoordinateKey",
+	MKMapViewZoomLevelKey = @"MKMapViewZoomLevelKey",
+	MKMapViewMapTypeKey = @"MKMapViewMapTypeKey";
 
-	@implementation MKMapView (CPCoding)
+@implementation MKMapView (CPCoding)
 
-	- (id) initWithCoder:(CPCoder)aCoder {
+- (id) initWithCoder:(CPCoder)aCoder {
 
-		self = [super initWithCoder:aCoder];
+	self = [super initWithCoder:aCoder];
 
-		if (!self) return nil;
+	if (!self) return nil;
 
-		[self setCenterCoordinate:CLLocationCoordinate2DFromString(
-			
-			[aCoder decodeObjectForKey:MKMapViewCenterCoordinateKey]
+	[self setCenterCoordinate:CLLocationCoordinate2DFromString(
 		
-		)];
+		[aCoder decodeObjectForKey:MKMapViewCenterCoordinateKey]
+	
+	)];
+	
+	[self setZoomLevel:[aCoder decodeObjectForKey:MKMapViewZoomLevelKey]];
+	[self setMapType:[aCoder decodeObjectForKey:MKMapViewMapTypeKey]];
+
+	[self _buildDOM];
+
+	return self;
+
+}
+
+- (void) encodeWithCoder:(CPCoder)aCoder {
+
+	[super encodeWithCoder:aCoder];
+
+	[aCoder encodeObject:CPStringFromCLLocationCoordinate2D(
 		
-		[self setZoomLevel:[aCoder decodeObjectForKey:MKMapViewZoomLevelKey]];
-		[self setMapType:[aCoder decodeObjectForKey:MKMapViewMapTypeKey]];
-
-		[self _buildDOM];
-
-		return self;
-
-	}
-
-	- (void) encodeWithCoder:(CPCoder)aCoder {
-
-		[super encodeWithCoder:aCoder];
-
-		[aCoder encodeObject:CPStringFromCLLocationCoordinate2D(
-			
-			[self centerCoordinate]
-			
-		) forKey:MKMapViewCenterCoordinateKey];
+		[self centerCoordinate]
 		
-		[aCoder encodeObject:[self zoomLevel] forKey:MKMapViewZoomLevelKey];
-		[aCoder encodeObject:[self mapType] forKey:MKMapViewMapTypeKey];
+	) forKey:MKMapViewCenterCoordinateKey];
+	
+	[aCoder encodeObject:[self zoomLevel] forKey:MKMapViewZoomLevelKey];
+	[aCoder encodeObject:[self mapType] forKey:MKMapViewMapTypeKey];
 
-	}
+}
 
-	@end
+@end
 
 
 

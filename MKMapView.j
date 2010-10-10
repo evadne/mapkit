@@ -28,38 +28,29 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 // OTHER DEALINGS IN THE SOFTWARE.
 
-
-
-
-
-
-
-
-
-
 @import <AppKit/CPView.j>
 
 @import "MKGeometry.j"
 @import "MKTypes.j"
 
+
+
+
+
+
+
+
+
+
 @class IRProtocol;
-
-
-
-
-
-
-
-
-
-
 @implementation MKMapView : CPView {
 
 	CLLocationCoordinate2D  m_centerCoordinate;
 	CLLocationCoordinate2D  m_previousTrackingLocation;
 	int m_zoomLevel;
 	MKMapType m_mapType;
-	BOOL m_scrollWheelZoomEnabled;
+
+	BOOL scrollWheelZoomEnabled @accessors;
 
 //	Google Maps DOM
 	
@@ -115,17 +106,6 @@
 
 
 
-+ (CPSet) keyPathsForValuesAffectingCenterCoordinateLatitude {
-	
-	return [CPSet setWithObjects:@"centerCoordinate"];
-	
-}
-
-+ (CPSet) keyPathsForValuesAffectingCenterCoordinateLongitude {
-	
-	return [CPSet setWithObjects:@"centerCoordinate"];
-
-}
 
 + (id) _mapTypeObjectForMapType:(MKMapType)aMapType {
 
@@ -157,10 +137,6 @@
 	return [self initWithFrame:aFrame centerCoordinate:nil];
 	
 }
-
-
-
-
 
 - (id) initWithFrame:(CGRect)aFrame centerCoordinate:(CLLocationCoordinate2D)aCoordinate {
 	
@@ -298,7 +274,6 @@
 		
 		google.maps.event.addListener(m_map, "idle", handleIdle);
 		
-		
 		if ([[self delegate] respondsToSelector:@selector(mapViewDidFinishLoading:)])
 		[[self delegate] mapViewDidFinishLoading:self];
 		
@@ -316,6 +291,8 @@
 
 
 - (CGRect) _worldBounds {
+	
+	if (!m_map_overlay) return CGRectMakeZero();
 
 	var	worldWidth = null,
 		projection = m_map_overlay.getProjection(), 
@@ -404,6 +381,7 @@
 	
 }
 
+@end
 
 
 
@@ -413,102 +391,117 @@
 
 
 
-//	Region
+
+@implementation MKMapView (Region)
 	
-	- (MKCoordinateRegion) region {
+- (MKCoordinateRegion) region {
+
+	if (!m_map || !m_map.getBounds()) return nil;
+	return MKCoordinateRegionFromLatLngBounds(m_map.getBounds());
+
+}
+
+- (void) setRegion:(MKCoordinateRegion)aRegion {
+
+	m_region = aRegion; if (!m_map) return;
+	[self setZoomLevel:m_map.getBoundsZoomLevel(LatLngBoundsFromMKCoordinateRegion(aRegion))];
+	[self setCenterCoordinate:aRegion.center];
+
+}
+
+@end
+
+
+
+
+
+
+
+
+
+
+@implementation MKMapView (CenterCoordinate)
+
+- (void) setCenterCoordinate:(CLLocationCoordinate2D)aCoordinate {
 	
-		if (!m_map || !m_map.getBounds()) return nil;
-		return MKCoordinateRegionFromLatLngBounds(m_map.getBounds());
-
-	}
-
-	- (void) setRegion:(MKCoordinateRegion)aRegion {
-
-		m_region = aRegion; if (!m_map) return;
-		[self setZoomLevel:m_map.getBoundsZoomLevel(LatLngBoundsFromMKCoordinateRegion(aRegion))];
-		[self setCenterCoordinate:aRegion.center];
+	[self setCenterCoordinate:aCoordinate pan:YES];
 	
-	}
+}
 
+- (void) setCenterCoordinate:(CLLocationCoordinate2D)aCoordinate pan:(BOOL)shouldPan {
 
-
-
-
-
-
-
-
-
-//	Center Coordinate
-
-	- (void) setCenterCoordinate:(CLLocationCoordinate2D)aCoordinate {
+	if (m_centerCoordinate && CLLocationCoordinate2DEqualToCLLocationCoordinate2D(
 		
-		[self setCenterCoordinate:aCoordinate pan:YES];
-		
-	}
-	
-	- (void) setCenterCoordinate:(CLLocationCoordinate2D)aCoordinate pan:(BOOL)shouldPan {
-
-		if (m_centerCoordinate && CLLocationCoordinate2DEqualToCLLocationCoordinate2D(
+		m_centerCoordinate, aCoordinate
 			
-			m_centerCoordinate, aCoordinate
-				
-		)) return;
+	)) return;
+	
+	m_centerCoordinate = new CLLocationCoordinate2D(aCoordinate);
+
+	if (!m_map)
+	return;
+	
+	if (shouldPan) {
+
+		m_map.panTo(LatLngFromCLLocationCoordinate2D(aCoordinate));
+	
+	} else {
 		
-		m_centerCoordinate = new CLLocationCoordinate2D(aCoordinate);
-
-		if (!m_map)
-		return;
+		m_map.setCenter(LatLngFromCLLocationCoordinate2D(aCoordinate));
 		
-		if (shouldPan) {
-
-			m_map.panTo(LatLngFromCLLocationCoordinate2D(aCoordinate));
-		
-		} else {
-			
-			m_map.setCenter(LatLngFromCLLocationCoordinate2D(aCoordinate));
-			
-		}
-
-		if ([[self delegate] respondsToSelector:@selector(mapView:regionDidChangeAnimated:)])
-		[[self delegate] mapView:self regionDidChangeAnimated:NO];
-
 	}
-	
-	
-	- (CLLocationCoordinate2D) centerCoordinate {
 
-		return new CLLocationCoordinate2D(m_centerCoordinate);
+	if ([[self delegate] respondsToSelector:@selector(mapView:regionDidChangeAnimated:)])
+	[[self delegate] mapView:self regionDidChangeAnimated:NO];
 
-	}
+}
+
+
+- (CLLocationCoordinate2D) centerCoordinate {
+
+	return new CLLocationCoordinate2D(m_centerCoordinate);
+
+}
+
+
+- (void) setCenterCoordinateLatitude:(float)aLatitude {
+
+	[self setCenterCoordinate:new CLLocationCoordinate2D(aLatitude, [self centerCoordinateLongitude])];
+
+}
+
+
+- (float) centerCoordinateLatitude {
+
+	return [self centerCoordinate].latitude;
+
+}
+
+
+- (void) setCenterCoordinateLongitude:(float)aLongitude {
+
+	[self setCenterCoordinate:new CLLocationCoordinate2D([self centerCoordinateLatitude], aLongitude)];
+
+}
+
+
+- (float) centerCoordinateLongitude {
+
+	return [self centerCoordinate].longitude;
+
+}
+
++ (CPSet) keyPathsForValuesAffectingCenterCoordinateLatitude {
 	
+	return [CPSet setWithObjects:@"centerCoordinate"];
 	
-	- (void) setCenterCoordinateLatitude:(float)aLatitude {
+}
 
-		[self setCenterCoordinate:new CLLocationCoordinate2D(aLatitude, [self centerCoordinateLongitude])];
-
-	}
++ (CPSet) keyPathsForValuesAffectingCenterCoordinateLongitude {
 	
-	
-	- (float) centerCoordinateLatitude {
+	return [CPSet setWithObjects:@"centerCoordinate"];
 
-		return [self centerCoordinate].latitude;
-
-	}
-	
-	
-	- (void) setCenterCoordinateLongitude:(float)aLongitude {
-
-		[self setCenterCoordinate:new CLLocationCoordinate2D([self centerCoordinateLatitude], aLongitude)];
-
-	}
-	
-	
-	- (float) centerCoordinateLongitude {
-
-		return [self centerCoordinate].longitude;
-
-	}
+}
 
 
 
@@ -568,29 +561,6 @@
 	
 	return m_mapType;
 	
-}
-
-
-
-
-
-- (void) setScrollWheelZoomEnabled:(BOOL)shouldBeEnabled {
-
-	m_scrollWheelZoomEnabled = shouldBeEnabled;
-
-	if (!m_map) return;
-	m_map.setOptions({
-		
-		scrollwheel: m_scrollWheelZoomEnabled
-	
-	});
-
-}
-
-- (BOOL) scrollWheelZoomEnabled {
-
-	return m_scrollWheelZoomEnabled;
-
 }
 
 
@@ -709,6 +679,8 @@
 
 
 - (void) scrollWheel:(CPEvent)anEvent {
+	
+	if (![self scrollWheelZoomEnabled]) return;
 	
 	//	Only handle vertical scroll (zooming) for now.
 	//	For now, the delta of the scroll event is not handled.
@@ -838,9 +810,18 @@
 	
 }
 
+@end
 
 
 
+
+
+
+
+
+
+
+@implementation MKMapView (Annotations)
 
 - (void) _refreshAnnotationViews {
 	

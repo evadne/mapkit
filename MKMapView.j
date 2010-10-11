@@ -935,13 +935,9 @@
 	
 	var item  = function (inTitle, inAction, inRepresentedObject) {
 		
-		CPLog(@"item asked for menu item with title %@, rep obj %@", inTitle, inRepresentedObject);
-		
 		var menuItem = [[CPMenuItem alloc] initWithTitle:inTitle action:inAction keyEquivalent:nil];
 		[menuItem setTarget:self];
 		[menuItem setRepresentedObject:inRepresentedObject];
-		
-		CPLog(@"item returning menu item %@ with title %@, rep obj %@", menuItem, [menuItem title], [menuItem representedObject]);
 		
 		return menuItem;
 		
@@ -959,9 +955,6 @@
 
 - (IBAction) menuDidSelectMapType:(id)sender {
 
-	CPLog(@"menuDidSelectMapType: %@", sender);
-	CPLog(@"[sender representedObject] %@", [sender representedObject]);
-	
 	[self setMapType:[sender representedObject]];
 	
 }

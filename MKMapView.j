@@ -58,8 +58,10 @@
 	DOMElement m_DOMGuardElement;
 	Object m_map;
 	Object m_map_overlay;
-
-
+	
+	Object testMarker;
+	
+	
 //	Delegation
 	
 	id delegate @accessors;
@@ -72,6 +74,8 @@
 	CPSet _dequeuedAnnotationViews;
 	CPView _annotationView;
 	BOOL _hasShownAnnotations;
+	
+		CPView _annotationTestingView;
 	
 	
 //	CPMenu Support
@@ -150,15 +154,17 @@
 //	TODO: Check if the annotation view really does not require any hit-testing.
 //	We might be able to do the hit test *here* if the annotation view is just a container.
 	_annotationView = [[CPView alloc] initWithFrame:aFrame];
+	[_annotationView setAutoresizingMask:CPViewHeightSizable|CPViewWidthSizable];
 	[_annotationView setHitTests:NO];
 	[_annotationView setHidden:YES];
 	_hasShownAnnotations = NO;
 	[self addSubview:_annotationView];
 	
-	var testingView = [[CPView alloc] initWithFrame:CGRectMake(64, 64, 128, 128)];
-	[testingView setHitTests:NO];	
-	[testingView setBackgroundColor:[CPColor redColor]];
-	[_annotationView addSubview:testingView];
+	_annotationTestingView = [[CPView alloc] initWithFrame:CGRectMake(64, 64, 32, 32)];
+	[_annotationTestingView setHitTests:NO];	
+	[_annotationTestingView setBackgroundColor:[CPColor redColor]];
+	[_annotationView addSubview:_annotationTestingView];
+	[self _hideAnnotationView];
 
 	return self;
 
@@ -263,9 +269,15 @@
 		wireEvent("resize", @selector(_handleMapResize));
 		wireEvent("idle", @selector(_handleMapIdle));
 		wireEvent("tilesloaded", @selector(_handleMapTilesLoaded));
-		
+		wireEvent("zoom_changed", @selector(_handleMapZoomChanged));
+
 		if ([[self delegate] respondsToSelector:@selector(mapViewDidFinishLoading:)])
 		[[self delegate] mapViewDidFinishLoading:self];
+		
+		testMarker = new google.maps.Marker();
+		testMarker.setMap(m_map);
+		testMarker.setPosition(LatLngFromCLLocationCoordinate2D(m_centerCoordinate));
+		testMarker.setIcon("http://museo.local/~evadne/projects/miPush/Resources/miPush.deviceRepresentationViewDot.iPhone.png");
 		
 	});
 
@@ -277,29 +289,22 @@
 
 - (void) _handleCenterCoordinateChange {
 	
-	var newCenterCoordinate = CLLocationCoordinate2DFromLatLng(m_map.getCenter());
-	var centerCoordinate = [self centerCoordinate];
+	[self setCenterCoordinate:CLLocationCoordinate2DFromLatLng(m_map.getCenter()) pan:NO];
+	[self _refreshAnnotationViews];
 
-	if (CLLocationCoordinate2DEqualToCLLocationCoordinate2D(
-		
-		centerCoordinate, 
-		newCenterCoordinate
-		
-	)) return;
-	
-	[self setCenterCoordinate:newCenterCoordinate pan:NO];
 	[[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
 	
 }
 
 - (void) _handleMapCenterChanged {
-	
+		
 	[self _handleCenterCoordinateChange];
+	
 	
 }
 
 - (void) _handleMapMoveEnd {
-	
+
 	[self _handleCenterCoordinateChange];	
 	
 }
@@ -307,6 +312,7 @@
 - (void) _handleMapResize {
 	
 	[self _handleCenterCoordinateChange];
+	[self _showAnnotationView];
 	
 }
 
@@ -316,6 +322,11 @@
 	
 	if ([[self delegate] respondsToSelector:@selector(mapViewDidIdle:)])
 	[[self delegate] mapViewDidIdle:self];
+
+	CPLog(@"now, has shown annotations? %@", _hasShownAnnotations ? @"Y" : @"N");
+
+	if (!_hasShownAnnotations) return;
+	[self _showAnnotationView];
 	
 }
 
@@ -329,10 +340,15 @@
 
 	[_annotationView removeFromSuperview];
 	[self addSubview:_annotationView];
-
-	[_annotationView animateUsingEffect:CPViewAnimationFadeInEffect duration:1 curve:CPAnimationEaseInOut delegate:nil];
 	
+	[_annotationView animateUsingEffect:CPViewAnimationFadeInEffect duration:1 curve:CPAnimationEaseInOut delegate:nil];
 	_hasShownAnnotations = YES;
+	
+}
+
+- (void) _handleMapZoomChanged {
+	
+	[self _showAnnotationView];
 	
 }
 
@@ -482,6 +498,9 @@
 		m_map.setCenter(LatLngFromCLLocationCoordinate2D(aCoordinate));
 		
 	}
+	
+	//	Skip one run loop interval here
+	[[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
 
 	if ([[self delegate] respondsToSelector:@selector(mapView:regionDidChangeAnimated:)])
 	[[self delegate] mapView:self regionDidChangeAnimated:NO];
@@ -565,9 +584,15 @@
 	m_zoomLevel = Math.floor(m_zoomLevel);
 
 	if (!m_map) return;
+	
+	var oldZoomLevel = m_zoomLevel;
+
 	m_map.setZoom(m_zoomLevel);	
 	m_zoomLevel = m_map.getZoom();
-
+	
+	if (m_zoomLevel != oldZoomLevel)
+	[self _hideAnnotationView];
+	
 }
 
 - (int) zoomLevel {
@@ -681,7 +706,7 @@
 
 
 - (void) mouseDown:(CPEvent)anEvent {
-
+	
 	if ([anEvent clickCount] === 2) {
 		
 		var zoomRequestPoint = [self convertPoint:[anEvent locationInWindow] fromView:nil];
@@ -754,10 +779,12 @@
 
 		if (type === CPLeftMouseDown) {
 
+			[self _hideAnnotationView];
 			m_previousTrackingLocation = currentLocation;
 		
 		} else if (type === CPLeftMouseDragged) {
 			
+			[self _hideAnnotationView];
 			var worldBounds = [self _worldBounds];
 			var worldMinY = worldBounds.origin.y;
 			var worldMaxY = worldMinY + worldBounds.size.height;
@@ -765,7 +792,8 @@
 			var viewBounds = [self bounds];
 			var viewMinY = viewBounds.origin.y;
 			var viewMaxY = viewMinY + viewBounds.size.height;
-			
+
+			var deltaX = currentLocation.x - m_previousTrackingLocation.x;			
 			var deltaY = currentLocation.y - m_previousTrackingLocation.y;
 			
 			if (deltaY > 0) {
@@ -795,7 +823,7 @@
 
 			centerCoordinate.latitude -= delta.latitude;
 			centerCoordinate.longitude -= delta.longitude;
-
+			
 			[self setCenterCoordinate:centerCoordinate pan:NO];
 
 		}
@@ -848,10 +876,26 @@
 
 - (void) _refreshAnnotationViews {
 	
-	//	Remove the old ones
+	[_annotationTestingView setFrameOrigin:[self convertCoordinate:CLLocationCoordinate2DMake(25, 121.375) toPointToView:self]];
 	
 }
 
+- (void) _hideAnnotationView {
+	
+	if ([_annotationView alphaValue] == 0) return;
+	
+	[_annotationView animateUsingEffect:CPViewAnimationFadeOutEffect duration:.15 curve:CPAnimationEaseInOut delegate:nil];
+	
+}
+
+- (void) _showAnnotationView {
+	
+	[self _refreshAnnotationViews];
+	
+	if ([_annotationView alphaValue] == 1) return;
+	[_annotationView animateUsingEffect:CPViewAnimationFadeInEffect duration:.15 curve:CPAnimationEaseInOut delegate:nil];
+		
+}
 
 - (void) _removeOrDequeueAnnotationViewIfAppropriate:(CPView)annotationView {
 	

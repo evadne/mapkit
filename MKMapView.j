@@ -70,6 +70,7 @@
 	CPArray _annotations;
 	CPArray _visibleAnnotationViews;
 	CPSet _dequeuedAnnotationViews;
+	CPView _annotationView;
 	
 	
 //	CPMenu Support
@@ -144,6 +145,18 @@
 	[self setScrollWheelZoomEnabled:YES];
 
 	[self _buildDOM];
+
+//	TODO: Check if the annotation view really does not require any hit-testing.
+//	We might be able to do the hit test *here* if the annotation view is just a container.
+	_annotationView = [[CPView alloc] initWithFrame:aFrame];
+	[_annotationView setHitTests:NO];
+	[_annotationView setHidden:YES];
+	[self addSubview:_annotationView];
+	
+	var testingView = [[CPView alloc] initWithFrame:CGRectMake(64, 64, 128, 128)];
+	[testingView setHitTests:NO];	
+	[testingView setBackgroundColor:[CPColor redColor]];
+	[_annotationView addSubview:testingView];
 
 	return self;
 
@@ -270,6 +283,22 @@
 		
 		if ([[self delegate] respondsToSelector:@selector(mapViewDidFinishLoading:)])
 		[[self delegate] mapViewDidFinishLoading:self];
+		
+
+		google.maps.event.addListener(m_map, "tilesloaded", /* (void) */ function  () {
+
+			CPLog(@"Handle tiles loaded");
+
+		});
+		
+	//	We messed with the DOM by inserting the map’s DOM element directly into the view’s.
+	//	Therefore the map overlaps the annotation view.
+	//	Removing it from the superview, then adding it back restores its Z-order.
+
+		[_annotationView removeFromSuperview];
+		[self addSubview:_annotationView];
+		
+		[_annotationView animateUsingEffect:CPViewAnimationFadeInEffect duration:1 curve:CPAnimationEaseInOut delegate:nil];
 		
 	});
 

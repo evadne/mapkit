@@ -71,6 +71,7 @@
 	CPArray _visibleAnnotationViews;
 	CPSet _dequeuedAnnotationViews;
 	CPView _annotationView;
+	BOOL _hasShownAnnotations;
 	
 	
 //	CPMenu Support
@@ -151,6 +152,7 @@
 	_annotationView = [[CPView alloc] initWithFrame:aFrame];
 	[_annotationView setHitTests:NO];
 	[_annotationView setHidden:YES];
+	_hasShownAnnotations = NO;
 	[self addSubview:_annotationView];
 	
 	var testingView = [[CPView alloc] initWithFrame:CGRectMake(64, 64, 128, 128)];
@@ -287,18 +289,20 @@
 
 		google.maps.event.addListener(m_map, "tilesloaded", /* (void) */ function  () {
 
-			CPLog(@"Handle tiles loaded");
+			if (_hasShownAnnotations) return;
+				
+		//	We messed with the DOM by inserting the map’s DOM element directly into the view’s.
+		//	Therefore the map overlaps the annotation view.
+		//	Removing it from the superview, then adding it back restores its Z-order.
+
+			[_annotationView removeFromSuperview];
+			[self addSubview:_annotationView];
+
+			[_annotationView animateUsingEffect:CPViewAnimationFadeInEffect duration:1 curve:CPAnimationEaseInOut delegate:nil];
+			
+			_hasShownAnnotations = YES;
 
 		});
-		
-	//	We messed with the DOM by inserting the map’s DOM element directly into the view’s.
-	//	Therefore the map overlaps the annotation view.
-	//	Removing it from the superview, then adding it back restores its Z-order.
-
-		[_annotationView removeFromSuperview];
-		[self addSubview:_annotationView];
-		
-		[_annotationView animateUsingEffect:CPViewAnimationFadeInEffect duration:1 curve:CPAnimationEaseInOut delegate:nil];
 		
 	});
 

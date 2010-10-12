@@ -248,61 +248,24 @@
 		_DOMElement.appendChild(m_DOMGuardElement);
 		
 		
-	//	Wire up event handlers
-		
-		var updateCenterCoordinate = function () {
+		var wireEvent = function (inEventName, inSelector) {
 			
-			var newCenterCoordinate = CLLocationCoordinate2DFromLatLng(m_map.getCenter());
-			var centerCoordinate = [self centerCoordinate];
+			google.maps.event.addListener(m_map, inEventName, function  () {
 
-			if (CLLocationCoordinate2DEqualToCLLocationCoordinate2D(
-				
-				centerCoordinate, 
-				newCenterCoordinate
-				
-			)) return;
-			
-			[self setCenterCoordinate:newCenterCoordinate pan:NO];
-			[[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
+				[self performSelector:inSelector];
+
+			});
 			
 		}
 		
-		google.maps.event.addListener(m_map, "center_changed", updateCenterCoordinate);
-		google.maps.event.addListener(m_map, "moveend", updateCenterCoordinate);
-		google.maps.event.addListener(m_map, "resize", updateCenterCoordinate);
-		
-		
-		var handleIdle = function  () {
-
-			[self _ensureWholeEarth];
-			
-			if ([[self delegate] respondsToSelector:@selector(mapViewDidIdle:)])
-			[[self delegate] mapViewDidIdle:self];
-
-		}
-		
-		google.maps.event.addListener(m_map, "idle", handleIdle);
+		wireEvent("center_changed", @selector(_handleMapCenterChanged));
+		wireEvent("moveend", @selector(_handleMapMoveEnd));
+		wireEvent("resize", @selector(_handleMapResize));
+		wireEvent("idle", @selector(_handleMapIdle));
+		wireEvent("tilesloaded", @selector(_handleMapTilesLoaded));
 		
 		if ([[self delegate] respondsToSelector:@selector(mapViewDidFinishLoading:)])
 		[[self delegate] mapViewDidFinishLoading:self];
-		
-
-		google.maps.event.addListener(m_map, "tilesloaded", /* (void) */ function  () {
-
-			if (_hasShownAnnotations) return;
-				
-		//	We messed with the DOM by inserting the map’s DOM element directly into the view’s.
-		//	Therefore the map overlaps the annotation view.
-		//	Removing it from the superview, then adding it back restores its Z-order.
-
-			[_annotationView removeFromSuperview];
-			[self addSubview:_annotationView];
-
-			[_annotationView animateUsingEffect:CPViewAnimationFadeInEffect duration:1 curve:CPAnimationEaseInOut delegate:nil];
-			
-			_hasShownAnnotations = YES;
-
-		});
 		
 	});
 
@@ -312,6 +275,66 @@
 
 
 
+- (void) _handleCenterCoordinateChange {
+	
+	var newCenterCoordinate = CLLocationCoordinate2DFromLatLng(m_map.getCenter());
+	var centerCoordinate = [self centerCoordinate];
+
+	if (CLLocationCoordinate2DEqualToCLLocationCoordinate2D(
+		
+		centerCoordinate, 
+		newCenterCoordinate
+		
+	)) return;
+	
+	[self setCenterCoordinate:newCenterCoordinate pan:NO];
+	[[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
+	
+}
+
+- (void) _handleMapCenterChanged {
+	
+	[self _handleCenterCoordinateChange];
+	
+}
+
+- (void) _handleMapMoveEnd {
+	
+	[self _handleCenterCoordinateChange];	
+	
+}
+
+- (void) _handleMapResize {
+	
+	[self _handleCenterCoordinateChange];
+	
+}
+
+- (void) _handleMapIdle {
+	
+	[self _ensureWholeEarth];
+	
+	if ([[self delegate] respondsToSelector:@selector(mapViewDidIdle:)])
+	[[self delegate] mapViewDidIdle:self];
+	
+}
+
+- (void) _handleMapTilesLoaded {
+	
+	if (_hasShownAnnotations) return;
+		
+//	We messed with the DOM by inserting the map’s DOM element directly into the view’s.
+//	Therefore the map overlaps the annotation view.
+//	Removing it from the superview, then adding it back restores its Z-order.
+
+	[_annotationView removeFromSuperview];
+	[self addSubview:_annotationView];
+
+	[_annotationView animateUsingEffect:CPViewAnimationFadeInEffect duration:1 curve:CPAnimationEaseInOut delegate:nil];
+	
+	_hasShownAnnotations = YES;
+	
+}
 
 
 
@@ -408,19 +431,10 @@
 	
 }
 
-@end
 
 
 
 
-
-
-
-
-
-
-@implementation MKMapView (Region)
-	
 - (MKCoordinateRegion) region {
 
 	if (!m_map || !m_map.getBounds()) return nil;
@@ -436,18 +450,9 @@
 
 }
 
-@end
 
 
 
-
-
-
-
-
-
-
-@implementation MKMapView (CenterCoordinate)
 
 - (void) setCenterCoordinate:(CLLocationCoordinate2D)aCoordinate {
 	
@@ -837,18 +842,9 @@
 	
 }
 
-@end
 
 
 
-
-
-
-
-
-
-
-@implementation MKMapView (Annotations)
 
 - (void) _refreshAnnotationViews {
 	
@@ -951,13 +947,9 @@
 	
 }
 
-@end
 
 
 
-
-
-@implementation MKMapView (CPMenu)
 
 - (CPMenu) menuForMapTypes {
 	
@@ -994,60 +986,70 @@
 
 @end
 
-//	Google Interfacing
 
-	var GoogleMapsScriptQueue = [];
 
-	var performWhenGoogleMapsScriptLoaded = function(/*Function*/ aFunction) {
 
-		GoogleMapsScriptQueue.push(aFunction);
 
-	//	Swizzle self out
-		performWhenGoogleMapsScriptLoaded = function() { GoogleMapsScriptQueue.push(aFunction); }
 
-	//	If Google Maps is loaded, there is no need to load the script again
-		if (window.google && google.maps) return _MKMapViewMapsLoaded();
 
-	//	Otherwise, pull the script down from Google and wait
-		var DOMScriptElement = document.createElement("script");
-		DOMScriptElement.src = "http://www.google.com/jsapi?callback=_MKMapViewGoogleAjaxLoaderLoaded";
-		DOMScriptElement.type = "text/javascript";
 
-		document.getElementsByTagName("head")[0].appendChild(DOMScriptElement);
 
-	}
 
-	function _MKMapViewGoogleAjaxLoaderLoaded () {
+var GoogleMapsScriptQueue = [];
+
+var performWhenGoogleMapsScriptLoaded = function(/*Function*/ aFunction) {
+
+	GoogleMapsScriptQueue.push(aFunction);
+
+//	Swizzle self out
+	performWhenGoogleMapsScriptLoaded = function() { GoogleMapsScriptQueue.push(aFunction); }
+
+//	If Google Maps is loaded, there is no need to load the script again
+	if (window.google && google.maps) return _MKMapViewMapsLoaded();
+
+//	Otherwise, pull the script down from Google and wait
+	var DOMScriptElement = document.createElement("script");
+	DOMScriptElement.src = "http://www.google.com/jsapi?callback=_MKMapViewGoogleAjaxLoaderLoaded";
+	DOMScriptElement.type = "text/javascript";
+
+	document.getElementsByTagName("head")[0].appendChild(DOMScriptElement);
+
+}
+
+function _MKMapViewGoogleAjaxLoaderLoaded () {
+
+	google.load("maps", "3.2", {
+
+		"callback": _MKMapViewMapsLoaded,
+		"other_params": "sensor=false"
 	
-		google.load("maps", "3.2", {
-	
-			"callback": _MKMapViewMapsLoaded,
-			"other_params": "sensor=false"
-		
-		});
+	});
 
-		[[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
+	[[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
 
-	}
+}
 
-	function _MKMapViewMapsLoaded () {
+function _MKMapViewMapsLoaded () {
 
-	//	Swizzle off delayed performing
-	
-		performWhenGoogleMapsScriptLoaded = function(aFunction) { aFunction(); }
-		
-		var index = 0, count = GoogleMapsScriptQueue.length;
-		for (; index < count; ++index) GoogleMapsScriptQueue[index]();
+//	Swizzle off delayed performing
 
-		[[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
+	performWhenGoogleMapsScriptLoaded = function(aFunction) { aFunction(); }
 	
-	}
-	
-	
-	
-	
-	
-//	CPCoding
+	var index = 0, count = GoogleMapsScriptQueue.length;
+	for (; index < count; ++index) GoogleMapsScriptQueue[index]();
+
+	[[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
+
+}
+
+
+
+
+
+
+
+
+
 	
 var	MKMapViewCenterCoordinateKey = @"MKMapViewCenterCoordinateKey",
 	MKMapViewZoomLevelKey = @"MKMapViewZoomLevelKey",

@@ -69,7 +69,7 @@
 	
 //	Annotations
 
-	CPArray _annotations;
+	CPArray _annotations @accessors(getter=annotations);
 	CPArray _visibleAnnotationViews;
 	CPSet _dequeuedAnnotationViews;
 	CPView _annotationView;
@@ -150,6 +150,8 @@
 	[self setScrollWheelZoomEnabled:YES];
 
 	[self _buildDOM];
+	
+	annotations = [CPMutableArray array];
 
 //	TODO: Check if the annotation view really does not require any hit-testing.
 //	We might be able to do the hit test *here* if the annotation view is just a container.
@@ -876,6 +878,28 @@
 
 - (void) _refreshAnnotationViews {
 	
+	var enumerator = [annotations objectEnumerator], object = nil;
+	
+	while (object = [enumerator nextObject]) {
+		
+		if (MKRegionContainsCLLocationCoordinate2D([object coordinate])){
+			
+			var annotationView = [self createViewForAnnotation:object];
+			
+			//	The view will be created if appropriate and necessary
+
+			[annotationView setFrameOrigin:[self convertCoordinate:[object coordinate] toPointToView:self]];
+			
+		} else {
+			
+			[self removeViewForAnnotation:object];
+			
+			//	The view is removed and there is no further action required
+			
+		}
+		
+	}
+	
 	[_annotationTestingView setFrameOrigin:[self convertCoordinate:CLLocationCoordinate2DMake(25, 121.375) toPointToView:self]];
 	
 }
@@ -884,7 +908,7 @@
 	
 	if ([_annotationView alphaValue] == 0) return;
 	
-	[_annotationView animateUsingEffect:CPViewAnimationFadeOutEffect duration:.15 curve:CPAnimationEaseInOut delegate:nil];
+	[_annotationView animateUsingEffect:CPViewAnimationFadeOutEffect duration:.5 curve:CPAnimationEaseInOut delegate:nil];
 	
 }
 
@@ -893,7 +917,7 @@
 	[self _refreshAnnotationViews];
 	
 	if ([_annotationView alphaValue] == 1) return;
-	[_annotationView animateUsingEffect:CPViewAnimationFadeInEffect duration:.15 curve:CPAnimationEaseInOut delegate:nil];
+	[_annotationView animateUsingEffect:CPViewAnimationFadeInEffect duration:.5 curve:CPAnimationEaseInOut delegate:nil];
 		
 }
 

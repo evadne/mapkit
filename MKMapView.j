@@ -82,6 +82,9 @@
 //	CPMenu Support
 	
 	CPMenu _menuForMapTypes;
+	
+	BOOL canZoomIn @accessors;
+	BOOL canZoomOut @accessors;
 
 }
 
@@ -588,6 +591,9 @@
 	
 	if (m_zoomLevel != oldZoomLevel)
 	[self _hideAnnotationView];
+	
+	[self setCanZoomIn:(m_zoomLevel < 20)];
+	[self setCanZoomOut:(m_zoomLevel > 2)];
 	
 }
 

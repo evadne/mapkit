@@ -74,6 +74,7 @@
 	CPSet _dequeuedAnnotationViews;
 	CPView _annotationView;
 	BOOL _hasShownAnnotations;
+	BOOL _annotationViewHidden;
 	
 		CPView _annotationTestingView;
 	
@@ -159,6 +160,7 @@
 	[_annotationView setAutoresizingMask:CPViewHeightSizable|CPViewWidthSizable];
 	[_annotationView setHitTests:NO];
 	[_annotationView setHidden:YES];
+	[_annotationView setAlphaValue:0];
 	_hasShownAnnotations = NO;
 	[self addSubview:_annotationView];
 	
@@ -166,7 +168,6 @@
 	[_annotationTestingView setHitTests:NO];	
 	[_annotationTestingView setBackgroundColor:[CPColor redColor]];
 	[_annotationView addSubview:_annotationTestingView];
-	[self _hideAnnotationView];
 
 	return self;
 
@@ -275,12 +276,7 @@
 
 		if ([[self delegate] respondsToSelector:@selector(mapViewDidFinishLoading:)])
 		[[self delegate] mapViewDidFinishLoading:self];
-		
-		testMarker = new google.maps.Marker();
-		testMarker.setMap(m_map);
-		testMarker.setPosition(LatLngFromCLLocationCoordinate2D(m_centerCoordinate));
-		testMarker.setIcon("http://museo.local/~evadne/projects/miPush/Resources/miPush.deviceRepresentationViewDot.iPhone.png");
-		
+
 	});
 
 }
@@ -306,7 +302,7 @@
 }
 
 - (void) _handleMapMoveEnd {
-
+	
 	[self _handleCenterCoordinateChange];	
 	
 }
@@ -325,9 +321,7 @@
 	if ([[self delegate] respondsToSelector:@selector(mapViewDidIdle:)])
 	[[self delegate] mapViewDidIdle:self];
 
-	CPLog(@"now, has shown annotations? %@", _hasShownAnnotations ? @"Y" : @"N");
-
-	if (!_hasShownAnnotations) return;
+	if (_hasShownAnnotations) return;
 	[self _showAnnotationView];
 	
 }
@@ -787,6 +781,7 @@
 	if (type === CPLeftMouseUp) {
 			
 		[self _ensureWholeEarth];		
+		[self _showAnnotationView];
 		m_previousTrackingLocation = currentLocation;
 
 	} else {
@@ -889,22 +884,22 @@
 
 
 - (void) _refreshAnnotationViews {
-	
+		
 	var enumerator = [annotations objectEnumerator], object = nil;
 	
 	while (object = [enumerator nextObject]) {
 		
 		if (MKRegionContainsCLLocationCoordinate2D([object coordinate])){
 			
-			var annotationView = [self createViewForAnnotation:object];
+			var annotationView = [self viewForAnnotation:object];
 			
 			//	The view will be created if appropriate and necessary
-
+			
 			[annotationView setFrameOrigin:[self convertCoordinate:[object coordinate] toPointToView:self]];
 			
 		} else {
 			
-			[self removeViewForAnnotation:object];
+			[[self viewForAnnotation:object] removeFromSuperview];
 			
 			//	The view is removed and there is no further action required
 			
@@ -922,6 +917,8 @@
 	
 	[_annotationView animateUsingEffect:CPViewAnimationFadeOutEffect duration:.5 curve:CPAnimationEaseInOut delegate:nil];
 	
+	_annotationViewHidden = YES;
+	
 }
 
 - (void) _showAnnotationView {
@@ -930,6 +927,8 @@
 	
 	if ([_annotationView alphaValue] == 1) return;
 	[_annotationView animateUsingEffect:CPViewAnimationFadeInEffect duration:.5 curve:CPAnimationEaseInOut delegate:nil];
+	
+	_annotationViewHidden = NO;
 		
 }
 

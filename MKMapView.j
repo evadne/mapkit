@@ -603,6 +603,18 @@
 
 }
 
+- (IBAction) zoomIn:(id)sender {
+	
+	[self setZoomLevel:[self zoomLevel] + 1];
+	
+}
+
+- (IBAction) zoomOut:(id)sender {
+	
+	[self setZoomLevel:[self zoomLevel] - 1];
+	
+}
+
 
 
 

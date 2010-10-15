@@ -586,12 +586,15 @@
 	
 	var oldZoomLevel = m_zoomLevel;
 
-	m_map.setZoom(m_zoomLevel);	
-	m_zoomLevel = m_map.getZoom();
-	
 	if (m_zoomLevel != oldZoomLevel)
 	[self _hideAnnotationView];
-	
+
+	m_map.setZoom(m_zoomLevel);	
+	m_zoomLevel = m_map.getZoom();
+
+	if (m_zoomLevel == oldZoomLevel)
+	[self _showAnnotationView];
+		
 	[self setCanZoomIn:(m_zoomLevel < 20)];
 	[self setCanZoomOut:(m_zoomLevel > 2)];
 	
@@ -787,19 +790,18 @@
 	if (type === CPLeftMouseUp) {
 			
 		[self _ensureWholeEarth];		
-		[self _showAnnotationView];
+	//	[self _showAnnotationView];
 		m_previousTrackingLocation = currentLocation;
 
 	} else {
 
 		if (type === CPLeftMouseDown) {
 
-			[self _hideAnnotationView];
 			m_previousTrackingLocation = currentLocation;
 		
 		} else if (type === CPLeftMouseDragged) {
 			
-			[self _hideAnnotationView];
+		//	[self _hideAnnotationView];
 			var worldBounds = [self _worldBounds];
 			var worldMinY = worldBounds.origin.y;
 			var worldMaxY = worldMinY + worldBounds.size.height;

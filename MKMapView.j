@@ -1040,6 +1040,18 @@
 }
 
 
+- (void) removeAllAnnotations {
+	
+	var enumerator = [_annotations objectEmumerator], object = nil;
+	while (object = [enumerator nextObjext]) {
+		
+		[self removeAnnotation:object];
+		
+	}
+	
+}
+
+
 - (MKAnnotationView) viewForAnnotation:(id)annotation {
 	
 	if ([[self delegate] respondsToSelector:@selector(mapView:viewForAnnotation:)])

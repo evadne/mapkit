@@ -783,7 +783,7 @@
 	if (type === CPLeftMouseUp) {
 			
 		[self _ensureWholeEarth];		
-		[self _showAnnotationViewWithDuration:.125];
+		[self _showAnnotationViewWithDuration:.250];
 		m_previousTrackingLocation = currentLocation;
 
 	} else {
@@ -794,7 +794,7 @@
 		
 		} else if (type === CPLeftMouseDragged) {
 			
-			[self _hideAnnotationViewWithDuration:.125];
+			[self _hideAnnotationViewWithDuration:.250];
 			var worldBounds = [self _worldBounds];
 			var worldMinY = worldBounds.origin.y;
 			var worldMaxY = worldMinY + worldBounds.size.height;

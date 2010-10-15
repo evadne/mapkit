@@ -1,70 +1,53 @@
 //	MKAnnotationView.j
+//	Looted from CappuGeo, Nicholas Small at 280 North
+
 //	Evadne Wu at Iridia, 2010
 	
-	
-	
-	
-	
 @import <AppKit/CPView.j>
-
-@import "MKGeometry.j"
-@import "MKTypes.j"
-
-
-
-
-
+	
+	
+	
+	
+	
 @implementation MKAnnotationView : CPView {
+	
+	MKAnnotation    annotation                  @accessors(readonly);
+	CPImage         image                       @accessors;
 
-	MKAnnotation annotation @accessors;
-	CPString reuseIdentifier @accessors;
-	
-	BOOL enabled @accessors(getter=isEnabled);
-	
+	CGPoint         centerOffset                @accessors;
+	CGPoint         calloutOffset               @accessors;
+
+	BOOL            enabled                     @accessors(getter=isEnabled);
+	BOOL            draggable                   @accessors(getter=isDraggable);
+	BOOL            highlighted                 @accessors(getter=isHighlighted);
+	BOOL            selected                    @accessors(readonly,getter=isSelected);
+
+	BOOL            canShowCallout              @accessors;
+	CPView          leftCalloutAccessoryView    @accessors;
+	CPView          rightCalloutAccessoryView   @accessors;
+	CPView          _calloutView;
+
+	MKMapView       mapView                     @accessors;
+
 }
 
+- (id) initWithAnnotation:(MKAnnotation)anAnnotation {
 
-
-
-
-- (MKAnnotationView) initWithAnnotation:(MKAnnotation)annotation reuseIdentifier:(CPString)reuseIdentifier {
-	
 	self = [super init]; if (self == nil) return nil;
-	
-	[self setAnnotation:annotation];
-	[self setReuseIdentifier:reuseIdentifier];
-	
+
+	annotation = anAnnotation;
+
+	centerOffset = CGPointMake(0.0, 0.0);
+	calloutOffset = CGPointMake(0.0, 0.0);
+
+	enabled = YES;
+	draggable = NO;
+	canShowCallout = NO;
+
+	_listeners = [];
+
 	return self;
-	
+
 }
-
-
-
-
-
-- (void) prepareForReuse {
-	
-	//	Empty
-	
-}
-
-
-
-
-
-- (CGRect) visualBounds {
-	
-//	FIXME.
-	return CGRectMakeZero();
-	
-}
-
-
-
-
 
 @end
-
-
-
-

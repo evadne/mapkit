@@ -76,8 +76,6 @@
 	BOOL _hasShownAnnotations;
 	BOOL _annotationViewHidden;
 	
-		CPView _annotationTestingView;
-	
 	
 //	CPMenu Support
 	
@@ -155,7 +153,8 @@
 
 	[self _buildDOM];
 	
-	annotations = [CPMutableArray array];
+	_annotations = [CPMutableArray array];
+	_visibleAnnotationViews = [CPMutableArray array];
 
 //	TODO: Check if the annotation view really does not require any hit-testing.
 //	We might be able to do the hit test *here* if the annotation view is just a container.
@@ -166,11 +165,6 @@
 	[_annotationView setAlphaValue:0];
 	_hasShownAnnotations = NO;
 	[self addSubview:_annotationView];
-	
-	_annotationTestingView = [[CPView alloc] initWithFrame:CGRectMake(64, 64, 32, 32)];
-	[_annotationTestingView setHitTests:NO];	
-	[_annotationTestingView setBackgroundColor:[CPColor redColor]];
-	[_annotationView addSubview:_annotationTestingView];
 
 	return self;
 
@@ -892,43 +886,47 @@
 
 
 - (void) _refreshAnnotationViews {
-		
-	var enumerator = [annotations objectEnumerator], object = nil;
+	
+	var enumerator = [_annotations objectEnumerator], object = nil;
 	
 	while (object = [enumerator nextObject]) {
 		
-		if (MKRegionContainsCLLocationCoordinate2D([object coordinate])){
+		if (MKRegionContainsCLLocationCoordinate2D([self region], [object coordinate])){
 			
 			var annotationView = [self viewForAnnotation:object];
-			
-			//	The view will be created if appropriate and necessary
-			
-			[annotationView setFrameOrigin:[self convertCoordinate:[object coordinate] toPointToView:self]];
+			if (!annotationView) continue;
+						
+			var frameOrigin = [self convertCoordinate:[object coordinate] toPointToView:self];
+			[annotationView setFrameOrigin:frameOrigin];
 			
 		} else {
-			
+		
 			[[self viewForAnnotation:object] removeFromSuperview];
-			
-			//	The view is removed and there is no further action required
 			
 		}
 		
 	}
 	
-	[_annotationTestingView setFrameOrigin:[self convertCoordinate:CLLocationCoordinate2DMake(25, 121.375) toPointToView:self]];
-	
 }
 
 - (void) _panAnnotationViewsByContainerPixelsX:(int)deltaX y:(int)deltaY {
 	
-	var oldFrame = [_annotationTestingView frame];
+	var enumerator = [_annotations objectEnumerator], object = nil;
 	
-	[_annotationTestingView setFrameOrigin:CGPointMake(
-	
-		oldFrame.origin.x + deltaX,
-		oldFrame.origin.y + deltaY
+	while (object = [enumerator nextObject]) {
 		
-	)];
+		var annotationView = [self viewForAnnotation:object];
+		if (!annotationView) continue;
+		
+		var oldFrame = [annotationView frame];
+		[annotationView setFrameOrigin:CGPointMake(
+		
+			oldFrame.origin.x + deltaX,
+			oldFrame.origin.y + deltaY
+			
+		)];
+		
+	}
 
 }
 
@@ -979,10 +977,9 @@
 - (void) addAnnotation:(id)anAnnotation {
 	
 	if (![anAnnotation valueForKey:@"coordinate"]) return;
-	
 	[_annotations addObject:anAnnotation];
 	
-	//	TODO: Perhaps ask the delegate for an annotation view
+	[self _refreshAnnotationViews];
 	
 }
 
@@ -1012,7 +1009,7 @@
 
 - (void) addAnnotations:(CPArray)annotations {
 	
-	var enumerator = [annotations objectEnumerator], object = nil;
+	var enumerator = [inAnnotations objectEnumerator], object = nil;
 	
 	while (object = [enumerator nextObject])
 	[self addAnnotation:object];
@@ -1022,47 +1019,66 @@
 
 - (void) removeAnnotation:(id)anAnnotation {
 	
-	if ([_annotations containsObject:anAnnotation])
-	[_annotations removeObject:_annotations];
+	if (![_annotations containsObject:anAnnotation]) return;
+	
+	[_annotations removeObject:anAnnotation];
+	
+	var enumerator = [_visibleAnnotationViews objectEnumerator], object = nil;
+	while (object = [enumerator nextObject])
+	if ([object annotation] == anAnnotation) {
+
+		[object removeFromSuperview];
+		[_visibleAnnotationViews removeObject:object];
+		return;
+	
+	}
 	
 }
 
 
 - (void) removeAnnotations:(CPArray)annotations {
 	
-	var enumerator = [annotations objectEmumerator], object = nil;
-	while (object = [enumerator nextObjext]) {
-		
-		[self removeAnnotation:object];
-		
-	}
+	var enumerator = [inAnnotations objectEnumerator], object = nil;
+	while (object = [enumerator nextObject])
+	[self removeAnnotation:object];
 	
 }
 
 
 - (void) removeAllAnnotations {
 	
-	var enumerator = [_annotations objectEmumerator], object = nil;
-	while (object = [enumerator nextObjext]) {
-		
-		[self removeAnnotation:object];
-		
-	}
+	var enumerator = [_annotations objectEnumerator], object = nil;
+	while (object = [enumerator nextObject])
+	[self removeAnnotation:object];
 	
 }
 
 
-- (MKAnnotationView) viewForAnnotation:(id)annotation {
+- (MKAnnotationView) viewForAnnotation:(id)inAnnotation {
 	
-	if ([[self delegate] respondsToSelector:@selector(mapView:viewForAnnotation:)])
-	return [[self delegate] mapView:self viewForAnnotation:annotation];
+//	Check if the annotation is already associated with a view by reverse-searching everybody.
+//	If there’s nothing, ask the delegate for a new one.
+
+	var enumerator = [_visibleAnnotationViews objectEnumerator], object = nil;
+	while (object = [enumerator nextObject])
+	if ([object annotation] == inAnnotation)
+	return object;
+	
+	if (![[self delegate] respondsToSelector:@selector(mapView:viewForAnnotation:)]) return nil;
+
+	var newAnnotationView = [[self delegate] mapView:self viewForAnnotation:inAnnotation];
+	if (!newAnnotationView) return nil;
+
+	[_visibleAnnotationViews addObject:newAnnotationView];
+	[_annotationView addSubview:newAnnotationView];
+	return newAnnotationView;
 	
 }
 
 
 - (MKAnnotationView) dequeueReusableAnnotationViewWithIdentifier:(CPString)identifier {
 	
-	var anyMapView = [_dequeuedAnnotationViews anyObject];
+	var anyAnnotationView = [_dequeuedAnnotationViews anyObject];
 	
 	if (anyAnnotationView) {
 	

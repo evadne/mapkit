@@ -331,9 +331,14 @@
 //	We messed with the DOM by inserting the map’s DOM element directly into the view’s.
 //	Therefore the map overlaps the annotation view.
 //	Removing it from the superview, then adding it back restores its Z-order.
+		
+	var enumerator = [[[self subviews] copy] objectEnumerator], object = nil;
+	while (object = [enumerator nextObject]) {
 
-	[_annotationView removeFromSuperview];
-	[self addSubview:_annotationView];
+		[object removeFromSuperview];
+		[self addSubview:object];
+	
+	}
 	
 	[_annotationView animateUsingEffect:CPViewAnimationFadeInEffect duration:1 curve:CPAnimationEaseInOut delegate:nil];
 	_hasShownAnnotations = YES;

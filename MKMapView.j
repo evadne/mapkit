@@ -978,7 +978,7 @@
 
 - (void) addAnnotation:(id)anAnnotation {
 	
-	if (![anAnnotation valueForKey:@"coordinates"]) return;
+	if (![anAnnotation valueForKey:@"coordinate"]) return;
 	
 	[_annotations addObject:anAnnotation];
 	

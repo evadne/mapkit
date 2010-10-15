@@ -291,7 +291,9 @@
 - (void) _handleCenterCoordinateChange {
 	
 	[self setCenterCoordinate:CLLocationCoordinate2DFromLatLng(m_map.getCenter()) pan:NO];
-	[self _refreshAnnotationViews];
+
+//	Ignore annotation view repositioning if the zoom level is not changed?
+//	[self _refreshAnnotationViews];
 
 	[[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
 	
@@ -324,8 +326,7 @@
 	if ([[self delegate] respondsToSelector:@selector(mapViewDidIdle:)])
 	[[self delegate] mapViewDidIdle:self];
 
-	if (_hasShownAnnotations) return;
-	[self _showAnnotationView];
+	[self _showAnnotationViewWithDuration:.125];
 	
 }
 
@@ -577,17 +578,15 @@
 
 
 - (void) setZoomLevel:(float)aZoomLevel {
-	
-	m_zoomLevel = +aZoomLevel || 0;
-	m_zoomLevel = MAX(m_zoomLevel, 2);
-	m_zoomLevel = Math.floor(m_zoomLevel);
+
+	m_zoomLevel = Math.floor(MIN(MAX((+aZoomLevel || 0), 2), 20));
 
 	if (!m_map) return;
+	if (m_zoomLevel == m_map.getZoom()) return;
 	
-	var oldZoomLevel = m_zoomLevel;
-
-	if (m_zoomLevel != oldZoomLevel)
 	[self _hideAnnotationView];
+		
+	var oldZoomLevel = m_zoomLevel;
 
 	m_map.setZoom(m_zoomLevel);	
 	m_zoomLevel = m_map.getZoom();
@@ -790,7 +789,7 @@
 	if (type === CPLeftMouseUp) {
 			
 		[self _ensureWholeEarth];		
-	//	[self _showAnnotationView];
+		[self _showAnnotationViewWithDuration:.125];
 		m_previousTrackingLocation = currentLocation;
 
 	} else {
@@ -801,7 +800,7 @@
 		
 		} else if (type === CPLeftMouseDragged) {
 			
-		//	[self _hideAnnotationView];
+			[self _hideAnnotationViewWithDuration:.125];
 			var worldBounds = [self _worldBounds];
 			var worldMinY = worldBounds.origin.y;
 			var worldMaxY = worldMinY + worldBounds.size.height;
@@ -842,6 +841,7 @@
 			centerCoordinate.longitude -= delta.longitude;
 			
 			[self setCenterCoordinate:centerCoordinate pan:NO];
+			[self _panAnnotationViewsByContainerPixelsX:deltaX y:deltaY];
 
 		}
 
@@ -919,25 +919,54 @@
 	
 }
 
+- (void) _panAnnotationViewsByContainerPixelsX:(int)deltaX y:(int)deltaY {
+	
+	var oldFrame = [_annotationTestingView frame];
+	
+	[_annotationTestingView setFrameOrigin:CGPointMake(
+	
+		oldFrame.origin.x + deltaX,
+		oldFrame.origin.y + deltaY
+		
+	)];
+
+}
+
+
 - (void) _hideAnnotationView {
+	
+	[self _hideAnnotationViewWithDuration:.5];
+		
+}
+
+
+- (void) _hideAnnotationViewWithDuration:(CPTimeInterval)inDuration {
 	
 	if ([_annotationView alphaValue] == 0) return;
 	
-	[_annotationView animateUsingEffect:CPViewAnimationFadeOutEffect duration:.5 curve:CPAnimationEaseInOut delegate:nil];
+	[_annotationView animateUsingEffect:CPViewAnimationFadeOutEffect duration:inDuration curve:CPAnimationEaseInOut delegate:nil];
 	
 	_annotationViewHidden = YES;
 	
 }
 
+
 - (void) _showAnnotationView {
 	
+	[self _showAnnotationViewWithDuration:.5];
+		
+}
+
+
+- (void) _showAnnotationViewWithDuration:(CPTimeInterval)inDuration {
+
 	[self _refreshAnnotationViews];
 	
 	if ([_annotationView alphaValue] == 1) return;
-	[_annotationView animateUsingEffect:CPViewAnimationFadeInEffect duration:.5 curve:CPAnimationEaseInOut delegate:nil];
+	[_annotationView animateUsingEffect:CPViewAnimationFadeInEffect duration:inDuration curve:CPAnimationEaseInOut delegate:nil];
 	
 	_annotationViewHidden = NO;
-		
+	
 }
 
 - (void) _removeOrDequeueAnnotationViewIfAppropriate:(CPView)annotationView {

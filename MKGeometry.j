@@ -260,10 +260,6 @@ function MKRegionContainsCLLocationCoordinate2D (inRegion, inCoordinate) {
 	if (!inCoordinate) return NO;
 	if (!inRegion) return NO; 
 	
-	CPLog(@"inCoordinate and inRegion are here");
-	
-	console.log(inCoordinate, inRegion, (inCoordinate.longitude - inRegion.center.longitude), inRegion.span.longitudeDelta);
-	
 	if (ABS(inCoordinate.longitude - inRegion.center.longitude) > inRegion.span.longitudeDelta) return NO;
 	
 	if (ABS(inCoordinate.latitude - inRegion.center.latitude) > inRegion.span.latitudeDelta) return NO;

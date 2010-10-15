@@ -897,6 +897,9 @@
 			if (!annotationView) continue;
 						
 			var frameOrigin = [self convertCoordinate:[object coordinate] toPointToView:self];
+			frameOrigin.x += [annotationView centerOffset].x;
+			frameOrigin.y += [annotationView centerOffset].y;
+			
 			[annotationView setFrameOrigin:frameOrigin];
 			
 		} else {

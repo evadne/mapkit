@@ -856,6 +856,33 @@
 
 
 
+- (void) setRegion:(MKCoordinateRegion)inRegion animated:(BOOL)inAnimated {
+	
+	google.maps.event.trigger(m_map, 'resize');
+	
+	var latLngBounds = new google.maps.LatLngBounds(	
+		
+		(new google.maps.LatLng(
+	
+			inRegion.center.latitude - inRegion.span.latitudeDelta,
+			inRegion.center.longitude - inRegion.span.longitudeDelta
+			
+		)),
+	
+		(new google.maps.LatLng(
+			
+			inRegion.center.latitude + inRegion.span.latitudeDelta,
+			inRegion.center.longitude + inRegion.span.longitudeDelta
+			
+		))
+		
+	);
+	
+	if (m_map)
+	m_map.fitBounds(latLngBounds);
+	
+}
+
 - (void) setVisibleMapRect:(CGRect)inRect animated:(BOOL)inAnimate {
 
 //	Arbitrary zoom levels are NOT supported.

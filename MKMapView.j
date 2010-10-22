@@ -393,6 +393,10 @@
 
 - (void) _ensureWholeEarth {
 	
+	return;
+	
+//	Temporarily suppressed because the visible rect might cause the map to zoom out of our preferred zoom level
+	
 	var worldBounds = [self _worldBounds];	if (!worldBounds) return;
 	var selfBounds = [self bounds];	if (!selfBounds) return;
 	if (CGRectContainsRect(worldBounds, selfBounds)) return;
@@ -885,13 +889,6 @@
 
 - (void) setVisibleMapRect:(CGRect)inRect animated:(BOOL)inAnimate {
 
-//	Arbitrary zoom levels are NOT supported.
-//	
-//	TODO: Ensure that the rect is shown, and track a recursion count
-//	so if showing the rect cause _ensureWholeEarth to fail, _ensureWholeEarth is temporarily suppressed
-	 
-	return;
-	
 	if (inRect.size.height < [self bounds].size.height) return;
 	if (inRect.size.width < [self bounds].size.width) return;
 	

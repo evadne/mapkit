@@ -144,7 +144,7 @@
 	
 	self = [super initWithFrame:aFrame]; if (!self) return nil;
 	
-	[self setBackgroundColor:[CPColor colorWithPatternImage:[[CPImage alloc] initWithContentsOfFile:[[CPBundle bundleForClass:[self class]] pathForResource:@"MKMapViewBackdrop_lightGrid.png"]]]];
+	[self setBackgroundColor:[CPColor colorWithPatternImage:[[CPImage alloc] initWithContentsOfFile:[[CPBundle bundleForClass:[MKMapView class]] pathForResource:@"MKMapViewBackdrop_lightGrid.png"]]]];
 	
 	[self setCenterCoordinate:aCoordinate || new CLLocationCoordinate2D(52, -1)];
 	[self setZoomLevel:6];
@@ -787,72 +787,66 @@
 	
 	var	type = [anEvent type],
 		currentLocation = [self convertPoint:[anEvent locationInWindow] fromView:nil];
+	
+	
+	switch (type) {
+	
+	case CPLeftMouseDown:
+	
+	//	Do nothing
+		break;
+	
+	
+	case CPLeftMouseDragged:
+
+	//	[self _hideAnnotationViewWithDuration:.1];
+	
+		var	worldBounds = [self _worldBounds],
+			worldMinY = worldBounds.origin.y,
+			worldMaxY = worldMinY + worldBounds.size.height,
+			viewBounds = [self bounds],
+			viewMinY = viewBounds.origin.y,
+			viewMaxY = viewMinY + viewBounds.size.height,
+			deltaX = currentLocation.x - m_previousTrackingLocation.x,
+			deltaY = currentLocation.y - m_previousTrackingLocation.y;
+	
+		if ((deltaY > 0) && ((worldMinY + deltaY) > viewMinY)) {
+
+			deltaY = 0;
 		
-
-	if (type === CPLeftMouseUp) {
-			
-		[self _ensureWholeEarth];		
-		[self _showAnnotationViewWithDuration:.250];
-		m_previousTrackingLocation = currentLocation;
-
-	} else {
-
-		if (type === CPLeftMouseDown) {
-
-			m_previousTrackingLocation = currentLocation;
+		} else if ((deltaY < 0) && ((worldMaxY + deltaY) < viewMaxY)){
 		
-		} else if (type === CPLeftMouseDragged) {
-			
-			[self _hideAnnotationViewWithDuration:.250];
-			var worldBounds = [self _worldBounds];
-			var worldMinY = worldBounds.origin.y;
-			var worldMaxY = worldMinY + worldBounds.size.height;
-
-			var viewBounds = [self bounds];
-			var viewMinY = viewBounds.origin.y;
-			var viewMaxY = viewMinY + viewBounds.size.height;
-
-			var deltaX = currentLocation.x - m_previousTrackingLocation.x;			
-			var deltaY = currentLocation.y - m_previousTrackingLocation.y;
-			
-			if (deltaY > 0) {
-				
-				if ((worldMinY + deltaY) > viewMinY)
-				deltaY = 0;
-				
-			} else if (deltaY < 0) {
-				
-				if ( (worldMaxY + deltaY) < viewMaxY )
-				deltaY = 0;
-				
-			}
-			
-			currentLocation.y = m_previousTrackingLocation.y + deltaY;
-			
-			var	centerCoordinate = [self centerCoordinate],
-				lastCoordinate = [self convertPoint:m_previousTrackingLocation toCoordinateFromView:self],
-				currentCoordinate = [self convertPoint:currentLocation toCoordinateFromView:self],
-				
-				delta = new CLLocationCoordinate2D(
-				
-					currentCoordinate.latitude - lastCoordinate.latitude,
-					currentCoordinate.longitude - lastCoordinate.longitude
-					
-				);
-
-			centerCoordinate.latitude -= delta.latitude;
-			centerCoordinate.longitude -= delta.longitude;
-			
-			[self setCenterCoordinate:centerCoordinate pan:NO];
-			[self _panAnnotationViewsByContainerPixelsX:deltaX y:deltaY];
-
+			deltaY = 0;
+		
 		}
+	
+		currentLocation.y = m_previousTrackingLocation.y + deltaY;
+	
+		var	centerCoordinate = [self centerCoordinate],
+			lastCoordinate = [self convertPoint:m_previousTrackingLocation toCoordinateFromView:self],
+			currentCoordinate = [self convertPoint:currentLocation toCoordinateFromView:self];
+		
+		centerCoordinate.latitude -= currentCoordinate.latitude - lastCoordinate.latitude;
+		centerCoordinate.longitude -= currentCoordinate.longitude - lastCoordinate.longitude;
+	
+		[self setCenterCoordinate:centerCoordinate pan:NO];
+		[self _panAnnotationViewsByContainerPixelsX:deltaX y:deltaY];
+	
+		break;
+	
+	
+	case CPLeftMouseUp:
 
-		[CPApp setTarget:self selector:@selector(trackPan:) forNextEventMatchingMask:CPLeftMouseDraggedMask | CPLeftMouseUpMask untilDate:nil inMode:nil dequeue:YES];
+		[self _ensureWholeEarth];		
+	//	[self _showAnnotationViewWithDuration:.25];	
+		break;
 		
 	}
-
+	
 	m_previousTrackingLocation = currentLocation;
+	
+	if ((type === CPLeftMouseDown) || (type === CPLeftMouseDragged))
+	[CPApp setTarget:self selector:@selector(trackPan:) forNextEventMatchingMask:CPLeftMouseDraggedMask | CPLeftMouseUpMask untilDate:nil inMode:nil dequeue:YES];
 
 }
 
@@ -973,7 +967,9 @@
 - (void) _hideAnnotationViewWithDuration:(CPTimeInterval)inDuration {
 	
 	if ([_annotationView alphaValue] == 0) return;
-	
+	if (_annotationView.animationTargetAlphaValue == 0) return;
+
+	_annotationView.animationTargetAlphaValue = 0;	
 	[_annotationView animateUsingEffect:CPViewAnimationFadeOutEffect duration:inDuration curve:CPAnimationEaseInOut delegate:nil];
 	
 	_annotationViewHidden = YES;
@@ -993,6 +989,9 @@
 	[self _refreshAnnotationViews];
 	
 	if ([_annotationView alphaValue] == 1) return;
+	if (_annotationView.animationTargetAlphaValue == 1) return;
+	
+	_annotationView.animationTargetAlphaValue = 1;
 	[_annotationView animateUsingEffect:CPViewAnimationFadeInEffect duration:inDuration curve:CPAnimationEaseInOut delegate:nil];
 	
 	_annotationViewHidden = NO;

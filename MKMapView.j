@@ -647,14 +647,23 @@
 
 	var geocoder = new google.maps.Geocoder();
 
-	geocoder.getLatLng([aSender stringValue], function(aLatLng) {
-
-		if (!aLatLng) return;
-
-		[self setCenterCoordinate:CLLocationCoordinate2DFromLatLng(aLatLng)];
-		[self setZoomLevel:7];
-
-		[[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
+	geocoder.geocode({
+		
+		address: [aSender stringValue]
+		
+	}, function(inResult, inGeocoderStatus) {
+		
+		if (inGeocoderStatus != google.maps.GeocoderStatus.OK)
+		return;
+		
+		if (inResult.length == 0)
+		return;
+		
+		var resultLatLng = inResult && inResult[0] && inResult[0].geometry && inResult[0].geometry.location;
+		if (!resultLatLng) return;
+		
+		[self setCenterCoordinate:CLLocationCoordinate2DFromLatLng(resultLatLng)];
+		[self setZoomLevel:18];
 
 	});
 

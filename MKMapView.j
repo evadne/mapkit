@@ -673,14 +673,39 @@
 
 
 
-- (Number) geographicalDistanceFromPoint:(CGPoint)fromPoint toPoint:(CGPoint)toPoint basedOnMapView:(MKMapView)inView {
+- (Number) geographicalDistanceFromPoint:(CGPoint)fromPoint toPoint:(CGPoint)toPoint {
 	
 	return MKGeographicalDistanceBetweenCoordinates(
 		
-		[self convertPoint:fromPoint toCoordinateFromView:inView],
-		[self convertPoint:toPoint toCoordinateFromView:inView]
+		[self convertPoint:fromPoint toCoordinateFromView:self],
+		[self convertPoint:toPoint toCoordinateFromView:self]
 		
 	);
+	
+}
+
+- (Number) pointDistanceWithMeter:(float)inMeters referencePoint:(CGPoint)inReferencePoint {
+	
+	var	fromPoint = inReferencePoint,
+		toPoint = CGPointMake(fromPoint.x + 16, fromPoint.y + 16),
+		pointDistance = Math.pow(Math.pow(16, 2) * 2, 0.5),
+		meterDistance = [self geographicalDistanceFromPoint:fromPoint toPoint:toPoint],
+		pointOverMeter = pointDistance / meterDistance;
+		
+	return pointOverMeter * inMeters;
+	
+}
+
+- (Number) meterDistanceWithPointDistance:(float)inPointDistance referencePoint:(CGPoint)inFromPoint {
+	
+	var	frame = [self frame],
+		fromPoint = inFromPoint ? inFromPoint : CGPointMake(CGRectGetMidX(frame), CGRectGetMidY(frame)),
+		toPoint = CGPointMake(fromPoint.x + inPointDistance, fromPoint.y + inPointDistance),
+		pointDistance = Math.pow(Math.pow(inPointDistance, 2) * 2, 0.5),
+		meterDistance = [self geographicalDistanceFromPoint:fromPoint toPoint:toPoint],
+		meterOverPoint = meterDistance / pointDistance;
+		
+	return meterOverPoint * inPointDistance;
 	
 }
 

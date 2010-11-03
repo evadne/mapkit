@@ -889,7 +889,7 @@
 
 
 - (void) setRegion:(MKCoordinateRegion)inRegion animated:(BOOL)inAnimated {
-	
+
 	google.maps.event.trigger(m_map, 'resize');
 	
 	var latLngBounds = new google.maps.LatLngBounds(	
@@ -912,6 +912,7 @@
 	
 	if (m_map)
 	m_map.fitBounds(latLngBounds);
+	[self setZoomLevel:m_map.getZoom()];
 	
 }
 
@@ -935,6 +936,7 @@
 	) toCoordinateFromView:self]));
 	
 	m_map.fitBounds(latLngBounds);
+	[self setZoomLevel:m_map.getZoom()];
 	
 }
 

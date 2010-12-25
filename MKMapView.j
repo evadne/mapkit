@@ -968,7 +968,7 @@
 		}
 		
 	}
-	
+		
 }
 
 - (void) _panAnnotationViewsByContainerPixelsX:(int)deltaX y:(int)deltaY {
@@ -1086,24 +1086,25 @@
 
 - (void) removeAnnotation:(id)anAnnotation {
 	
-	if (![_annotations containsObject:anAnnotation]) return;
-	
+	if ([_annotations containsObject:anAnnotation])
 	[_annotations removeObject:anAnnotation];
-	
-	var enumerator = [_visibleAnnotationViews objectEnumerator], object = nil;
-	while (object = [enumerator nextObject])
-	if ([object annotation] == anAnnotation) {
+		
+	var enumerator = [[_visibleAnnotationViews copy] objectEnumerator], object = nil;
+	while (object = [enumerator nextObject]) {
+
+		if ([object annotation] != anAnnotation)
+		continue;
 
 		[object removeFromSuperview];
 		[_visibleAnnotationViews removeObject:object];
-		return;
+		break;
 	
 	}
-	
+
 }
 
 
-- (void) removeAnnotations:(CPArray)annotations {
+- (void) removeAnnotations:(CPArray)inAnnotations {
 	
 	var enumerator = [inAnnotations objectEnumerator], object = nil;
 	while (object = [enumerator nextObject])
@@ -1114,10 +1115,10 @@
 
 - (void) removeAllAnnotations {
 	
-	var enumerator = [_annotations objectEnumerator], object = nil;
+	var enumerator = [[_annotations copy] objectEnumerator], object = nil;
 	while (object = [enumerator nextObject])
 	[self removeAnnotation:object];
-	
+
 }
 
 
